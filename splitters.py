@@ -110,47 +110,24 @@ class KMeansBal:
 
 
 class RoundRobin:
-    def __init__(self, k):
-        self.k = k
-        self.name = 'Round Robin'
-        self.info = 'k=%d' % k
-        self.features = None
-        self.features_desc = 'All'
+    def __init__(self, n_clusters):
+        self.n_clusters = n_clusters
 
-    def split(self, ds):
-        output = []
-        for n in xrange(self.k):
-            cluster_n_records = [i for i in xrange(ds.shape[0]) if
-                                 i % self.k == n]
-            output.append(ds.iloc[cluster_n_records])
-        return output
+    def fit_predict(self, ds):
+        return [i % self.n_clusters for i in xrange(ds.shape[0])]
 
 
 class RandomRoundRobin:
-    def __init__(self, k):
-        self.k = k
-        self.name = 'Random Round Robin'
-        self.info = 'k=%d' % k
-        self.features = None
-        self.features_desc = 'All'
+    def __init__(self, n_clusters):
+        self.n_clusters = n_clusters
 
-    def split(self, ds):
-        output = []
-        random_assignment = [randint(0, self.k-1) for i in xrange(ds.shape[0])]
-        for n in xrange(self.k):
-            cluster_n_records = [i for i, x in enumerate(random_assignment) if
-                                 x == n]
-            output.append(ds.iloc[cluster_n_records])
-        return output
+    def fit_predict(self, ds):
+        return [randint(0, self.n_clusters-1) for i in xrange(ds.shape[0])]
 
 
 class NoSplit:
-    def __init__(self, k):
-        self.k = k
-        self.name = 'No Split'
-        self.info = ''
-        self.features = None
-        self.features_desc = 'All'
+    def __init__(self, n_clusters):
+        self.n_clusters = 1
 
-    def split(self, ds):
-        return [ds]
+    def fit_predict(self, ds):
+        return [0 for _ in xrange(ds.shape[0])]
