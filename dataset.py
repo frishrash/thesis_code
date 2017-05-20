@@ -139,9 +139,13 @@ class NSL:
                 columns=self.ds.columns
                 )
 
+    @classmethod
+    def get_labels(cls, ds):
+        return ds.index.to_series().apply(lambda x: cls._CLASS_LABELS[x])
+
+    @classmethod
+    def standard_labels(cls):
+        return cls._STANDARD_LABELS
+
     def labels(self):
         return self.ds.index.to_series().apply(lambda x: self._CLASS_LABELS[x])
-
-    @property
-    def standard_labels(self):
-        return self._STANDARD_LABELS
