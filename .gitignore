@@ -90,3 +90,6 @@ ENV/
 
 # Custom dumps
 *.dmp
+
+# Reports
+*.csv
