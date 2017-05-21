@@ -6,6 +6,7 @@ Created on Sat May 20 15:46:06 2017
 """
 
 import time
+import pickle
 import numpy as np
 from splitters import ClusterWrapper
 from settings import MIN_CLUSTER_SIZE, MAX_CLUSTER_SIZE, MAX_CLUSTERS_STD
@@ -55,28 +56,32 @@ class ClusteringModel:
 
         return True
 
-    def eval_model(self):
-        self.splits = []
+    def run(self):
         split_times = []
+        all_splits = []
+        clustering_results = []
         for splitter in self.splitters:
             split_start = time.clock()
             splits = splitter.split(self.dataset.ds)
-            split_time = time.clock() - split_start
-            if len(splits) != splitter.k:
-                return False
-            if not self._is_feasible(splits):
-                return False
-            self.splits.append(splits)
-            split_times.append(split_time)
+            split_times.append(time.clock() - split_start)
+            clustering_results.append(splitter.clustering_result)
+            all_splits.append(splits)
 
-        self._splits_info()
+        # Add more splits information to self.splits_info
+        self._splits_info(all_splits)
         for i, t in enumerate(split_times):
             self.splits_info[i]['SPLIT_TIME'] = t
-        return True
+        for i, clustering_result in enumerate(clustering_results):
+            self.splits_info[i]['CLUSTERING_RESULT'] = clustering_result
+        for i, k in enumerate(xrange(self.min_k, self.max_k+1)):
+            self.splits_info[i]['k'] = k
 
-    def _splits_info(self):
+    def save(self, file_name):
+        pickle.dump(self.splits_info, open(file_name, 'wb'))
+
+    def _splits_info(self, all_splits):
         self.splits_info = []
-        for splits in self.splits:
+        for splits in all_splits:
             split_sizes = map(lambda x: len(x), splits)
             clustering_info = {
                 'SPLIT_SIZES': split_sizes,

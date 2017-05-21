@@ -46,12 +46,19 @@ class ClusterWrapper:
                                             ds.columns.str.contains(x)])
             clustering_result = self.algo.fit_predict(ds[list(features)])
 
+        # Save clustering result - list size of ds with values as cluster ids
+        self.clustering_result = clustering_result
+
+        # Return actual clusters as list of Pandas DataFrames
+        return self.split_ds(clustering_result, ds)
+
+    @staticmethod
+    def split_ds(clustering_result, ds):
         result = []
         for cluster_i in np.unique(clustering_result):
             cluster_i_records = [i for i, x in enumerate(clustering_result) if
                                  x == cluster_i]
             result.append(ds.iloc[cluster_i_records])
-
         return result
 
 
