@@ -89,4 +89,4 @@ ENV/
 .ropeproject
 
 # Custom dumps
-.dmp
+*.dmp
