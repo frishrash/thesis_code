@@ -38,9 +38,13 @@ def eval_models():
             for scaling in (ds.SCL_NONE, ds.SCL_MINMAX):
                 nsl = NSL(dataset, encoding, scaling)
 
-                models.append(CM(nsl).gen_model(RoundRobin))
-                models.append(CM(nsl).gen_model(RandomRoundRobin))
-                models.append(CM(nsl, min_k=1, max_k=1).gen_model(NoSplit))
+                # Add round robin, random robin and baseline only once
+                if (encoding == ds.ENC_NUMERIC and scaling == ds.SCL_NONE):
+                    models.append(CM(nsl).gen_model(RoundRobin))
+                    models.append(CM(nsl).gen_model(RandomRoundRobin))
+                    models.append(CM(nsl, min_k=1, max_k=1).gen_model(NoSplit))
+
+                # Add all clustering models
                 for f, d in zip(nsl_features, nsl_descs):
                     models.append(CM(nsl, f, d).gen_model(KMeans))
                     models.append(CM(nsl, f, d).gen_model(Birch))
