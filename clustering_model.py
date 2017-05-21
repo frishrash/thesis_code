@@ -46,12 +46,12 @@ class ClusteringModel:
         min_split_size = np.min(split_sizes)
         max_split_size = np.max(split_sizes)
         clustering_std = np.std(split_sizes)
-        #if min_split_size < MIN_CLUSTER_SIZE:
-        #    return False
-        #if max_split_size > MAX_CLUSTER_SIZE:
-        #    return False
-        #if clustering_std > MAX_CLUSTERS_STD:
-        #    return False
+        if min_split_size < MIN_CLUSTER_SIZE:
+            return False
+        if max_split_size > MAX_CLUSTER_SIZE:
+            return False
+        if clustering_std > MAX_CLUSTERS_STD:
+            return False
 
         return True
 
