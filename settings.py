@@ -16,6 +16,7 @@ REPORTS_DIR = r"C:\dev\thesis\reports"
 MODELS_DIR = r"C:\dev\thesis\models"
 
 FEASIBILITY_REPORT = os.path.join(REPORTS_DIR, 'feasibility.csv')
+CLASSIFIERS_REPORT = os.path.join(REPORTS_DIR, 'classifiers.csv')
 
 MIN_CLUSTER_SIZE = 450
 MAX_CLUSTER_SIZE = 15550

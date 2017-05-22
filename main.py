@@ -8,6 +8,15 @@ Created on Sat May 20 17:40:33 2017
 import os
 import numpy as np
 from sklearn.cluster import KMeans, Birch
+from sklearn.ensemble import RandomForestClassifier as RF
+from sklearn.ensemble import BaggingClassifier
+from sklearn.tree import DecisionTreeClassifier as DT
+from sklearn.neural_network import MLPClassifier
+from sklearn.naive_bayes import GaussianNB, MultinomialNB
+from sklearn.linear_model import Perceptron
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn import svm
+from sklearn.covariance import EllipticEnvelope
 from os import listdir
 from os.path import join, splitext
 import pickle
@@ -16,8 +25,33 @@ import csv
 import dataset as ds
 from dataset import NSL
 from clustering_model import ClusteringModel as CM
+from eval import EvalClassifier, EV_TIME_TRN, EV_TIME_TST
+from eval import EV_FSCORE, EV_PRE, EV_REC, EV_AUC, EV_CM
+from classifier import ClfFactory
 from splitters import RoundRobin, RandomRoundRobin, NoSplit
-from settings import MODELS_DIR, MAX_CLUSTERS_STD, FEASIBILITY_REPORT
+from settings import MODELS_DIR, MAX_CLUSTERS_STD
+from settings import FEASIBILITY_REPORT, CLASSIFIERS_REPORT
+
+
+dt3 = ClfFactory(DT, random_state=0, max_depth=3)
+dt3e = ClfFactory(DT, random_state=0, criterion='entropy', max_depth=3)
+dt3eb = ClfFactory(DT, random_state=0, max_depth=3, criterion='entropy',
+                   class_weight='balanced')
+rf3 = ClfFactory(RF, random_state=0, min_samples_leaf=20, max_depth=3)
+mlp = ClfFactory(MLPClassifier, random_state=0)
+mnb = ClfFactory(MultinomialNB)
+gnb = ClfFactory(GaussianNB)
+perceptron = ClfFactory(Perceptron)
+nn = ClfFactory(KNeighborsClassifier, n_neighbors=1)
+svmlin = ClfFactory(svm.SVC, kernel='linear', probability=True)
+svmlinovr = ClfFactory(svm.SVC, kernel='linear', probability=True,
+                       decision_function_shape='ovr')
+svmbaglinovr = ClfFactory(BaggingClassifier,
+                          svm.SVC(kernel='linear',
+                                  probability=True,
+                                  decision_function_shape='ovr'))
+svmrbf = ClfFactory(svm.SVC, kernel='rbf')
+ee = ClfFactory(EllipticEnvelope)
 
 
 def create_clustering_models():
@@ -73,12 +107,15 @@ def create_clustering_models():
 
 def is_feasible(model_data):
     max_std = np.max(map(lambda x: x['CLUSTERING_STD'], model_data))
+
     # Check maximal clustering sizes std. dev
     if max_std > MAX_CLUSTERS_STD:
         return False
+
     # Check that all clustering returned in requested size
     if not all(map(lambda x: x['k'] == len(x['SPLIT_SIZES']), model_data)):
         return False
+
     return True
 
 
@@ -106,5 +143,56 @@ def clustering_feasibility_report():
     csv_file.close()
 
 
+def eval_classifiers():
+    csv_file = open(CLASSIFIERS_REPORT, 'wb')
+    csvwriter = csv.writer(csv_file)
+    header = ['Dataset', 'Encoding', 'Scaling', 'Algo', 'Features', 'K',
+              'Split Sizes', 'Classifier', 'Classifier Info', 'K-fold',
+              'Training Time', 'Testing Time', 'F-Score', 'Precision',
+              'Recall']
+    labels = NSL.standard_labels()
+    for a in labels:
+        for b in labels:
+            header.append("True %s, Predicted %s" % (a, b))
+    for a in labels:
+        header.append("AUC %s" % a)
+    csvwriter.writerow(header)
+    classifier = dt3
+
+    for f in listdir(MODELS_DIR):
+        algo, features, dataset, encoding, scaling = splitext(f)[0].split('_')
+        data = pickle.load(open(join(MODELS_DIR, f), 'rb'))
+        if is_feasible(data):
+            print('Working on %s' % f)
+            ds_ = NSL(dataset, scaling=scaling, encoding=encoding)
+            ev = EvalClassifier(ds_, data, classifier, calc_prob=True)
+
+            # If feasible (no errors during cross-validation)
+            if ev.eval():
+                for i, res in enumerate(ev.results):
+                    line = [dataset, encoding, scaling, algo, features,
+                            data[i]['k'], ' - '.join(map(lambda x: str(x),
+                                                     data[i]['SPLIT_SIZES'])),
+                            classifier.name, classifier.info, ev.kfold,
+                            '%.2f' % res[EV_TIME_TRN],
+                            '%.2f' % res[EV_TIME_TST],
+                            '%.2f' % res[EV_FSCORE],
+                            '%.2f' % res[EV_PRE],
+                            '%.2f' % res[EV_REC]]
+
+                    line = np.append(line, res[EV_CM].flatten())
+                    if EV_AUC in res:
+                        for lbl in NSL.standard_labels():
+                            line = np.append(line, '%.2f' % res[EV_AUC][lbl])
+
+                    csvwriter.writerow(line)
+                    csv_file.close()
+                    csv_file = open(CLASSIFIERS_REPORT, 'ab')
+                    csvwriter = csv.writer(csv_file)
+
+    csv_file.close()
+
+
 # create_clustering_models()
-clustering_feasibility_report()
+# clustering_feasibility_report()
+# eval_classifiers()

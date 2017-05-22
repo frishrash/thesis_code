@@ -8,6 +8,7 @@ Created on Sat May 20 14:16:15 2017
 from random import randint
 import numpy as np
 from sklearn.cluster import KMeans
+from dataset import split_ds
 
 
 class ClusterWrapper:
@@ -50,16 +51,7 @@ class ClusterWrapper:
         self.clustering_result = clustering_result
 
         # Return actual clusters as list of Pandas DataFrames
-        return self.split_ds(clustering_result, ds)
-
-    @staticmethod
-    def split_ds(clustering_result, ds):
-        result = []
-        for cluster_i in np.unique(clustering_result):
-            cluster_i_records = [i for i, x in enumerate(clustering_result) if
-                                 x == cluster_i]
-            result.append(ds.iloc[cluster_i_records])
-        return result
+        return split_ds(clustering_result, ds)
 
 
 class KMeansBal:

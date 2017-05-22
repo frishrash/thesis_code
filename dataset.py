@@ -6,6 +6,7 @@ Created on Sat May 20 08:11:20 2017
 """
 
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 import settings
@@ -21,6 +22,15 @@ SCL_STD = 'Standard'
 
 ENC_NUMERIC = 'Numeric'
 ENC_HOT = 'Hot Encode'
+
+
+def split_ds(clustering_result, ds):
+    result = []
+    for cluster_i in np.unique(clustering_result):
+        cluster_i_records = [i for i, x in enumerate(clustering_result) if
+                             x == cluster_i]
+        result.append(ds.iloc[cluster_i_records])
+    return result
 
 
 class NSL:
