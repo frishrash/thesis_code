@@ -42,7 +42,7 @@ mlp = ClfFactory(MLPClassifier, random_state=0)
 mnb = ClfFactory(MultinomialNB)
 gnb = ClfFactory(GaussianNB)
 perceptron = ClfFactory(Perceptron)
-nn = ClfFactory(KNeighborsClassifier, n_neighbors=1)
+nn = ClfFactory(KNeighborsClassifier, n_neighbors=1, n_jobs=-1)
 svmlin = ClfFactory(svm.SVC, kernel='linear', probability=True)
 svmlinovr = ClfFactory(svm.SVC, kernel='linear', probability=True,
                        decision_function_shape='ovr')
@@ -86,7 +86,7 @@ def create_clustering_models():
 
                 # Add all clustering models
                 for f, d in zip(nsl_features, nsl_descs):
-                    models.append(CM(nsl, f, d).gen_model(KMeans))
+                    models.append(CM(nsl, f, d).gen_model(KMeans, n_jobs=-1))
                     models.append(CM(nsl, f, d).gen_model(Birch))
 
     for model in models:
@@ -165,6 +165,9 @@ def eval_classifiers():
         if is_feasible(data):
             ds_ = NSL(dataset, scaling=scaling, encoding=encoding)
             for classifier in classifiers:
+                # Evaluate SVM only when min-max scaled (time constraint)
+                if classifier.name == 'SVM' and scaling != 'Min-max':
+                    continue
                 print('Working on %s, classifier %s' % (f, classifier.name))
                 ev = EvalClassifier(ds_, data, classifier, calc_prob=True)
 
