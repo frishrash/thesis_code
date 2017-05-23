@@ -157,38 +157,41 @@ def eval_classifiers():
     for a in labels:
         header.append("AUC %s" % a)
     csvwriter.writerow(header)
-    classifier = dt3
+    classifiers = [nn, dt3, rf3, mlp, svmlin]
 
     for f in listdir(MODELS_DIR):
         algo, features, dataset, encoding, scaling = splitext(f)[0].split('_')
         data = pickle.load(open(join(MODELS_DIR, f), 'rb'))
         if is_feasible(data):
-            print('Working on %s' % f)
             ds_ = NSL(dataset, scaling=scaling, encoding=encoding)
-            ev = EvalClassifier(ds_, data, classifier, calc_prob=True)
+            for classifier in classifiers:
+                print('Working on %s, classifier %s' % (f, classifier.name))
+                ev = EvalClassifier(ds_, data, classifier, calc_prob=True)
 
-            # If feasible (no errors during cross-validation)
-            if ev.eval():
-                for i, res in enumerate(ev.results):
-                    line = [dataset, encoding, scaling, algo, features,
-                            data[i]['k'], ' - '.join(map(lambda x: str(x),
-                                                     data[i]['SPLIT_SIZES'])),
-                            classifier.name, classifier.info, ev.kfold,
-                            '%.2f' % res[EV_TIME_TRN],
-                            '%.2f' % res[EV_TIME_TST],
-                            '%.2f' % res[EV_FSCORE],
-                            '%.2f' % res[EV_PRE],
-                            '%.2f' % res[EV_REC]]
+                # If feasible (no errors during cross-validation)
+                if ev.eval():
+                    for i, res in enumerate(ev.results):
+                        line = [dataset, encoding, scaling, algo, features,
+                                data[i]['k'], ' - '.join(map(lambda x: str(x),
+                                                         data[i]['SPLIT_SIZES']
+                                                             )),
+                                classifier.name, classifier.info, ev.kfold,
+                                '%.2f' % res[EV_TIME_TRN],
+                                '%.2f' % res[EV_TIME_TST],
+                                '%.2f' % res[EV_FSCORE],
+                                '%.2f' % res[EV_PRE],
+                                '%.2f' % res[EV_REC]]
 
-                    line = np.append(line, res[EV_CM].flatten())
-                    if EV_AUC in res:
-                        for lbl in NSL.standard_labels():
-                            line = np.append(line, '%.2f' % res[EV_AUC][lbl])
+                        line = np.append(line, res[EV_CM].flatten())
+                        if EV_AUC in res:
+                            for lbl in NSL.standard_labels():
+                                line = np.append(line,
+                                                 '%.2f' % res[EV_AUC][lbl])
 
-                    csvwriter.writerow(line)
-                    csv_file.close()
-                    csv_file = open(CLASSIFIERS_REPORT, 'ab')
-                    csvwriter = csv.writer(csv_file)
+                        csvwriter.writerow(line)
+                        csv_file.close()
+                        csv_file = open(CLASSIFIERS_REPORT, 'ab')
+                        csvwriter = csv.writer(csv_file)
 
     csv_file.close()
 
