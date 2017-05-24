@@ -78,11 +78,12 @@ def create_clustering_models():
             for scaling in (ds.SCL_NONE, ds.SCL_MINMAX):
                 nsl = NSL(dataset, encoding, scaling)
 
-                # Add round robin, random robin and baseline only once
-                if (encoding == ds.ENC_NUMERIC and scaling == ds.SCL_NONE):
-                    models.append(CM(nsl).gen_model(RoundRobin))
-                    models.append(CM(nsl).gen_model(RandomRoundRobin))
-                    models.append(CM(nsl, min_k=1, max_k=1).gen_model(NoSplit))
+                # The following splitters are features agnostic. However, they
+                # are added for every encoding and scaling since it matters for
+                # the ML classifiers later on in the process
+                models.append(CM(nsl).gen_model(RoundRobin))
+                models.append(CM(nsl).gen_model(RandomRoundRobin))
+                models.append(CM(nsl, min_k=1, max_k=1).gen_model(NoSplit))
 
                 # Add all clustering models
                 for f, d in zip(nsl_features, nsl_descs):
