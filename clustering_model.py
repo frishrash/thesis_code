@@ -12,6 +12,20 @@ from splitters import ClusterWrapper
 from settings import MIN_CLUSTER_SIZE, MAX_CLUSTER_SIZE, MAX_CLUSTERS_STD
 
 
+def is_feasible(model_data, max_sigma=MAX_CLUSTERS_STD):
+    max_std = np.max(map(lambda x: x['CLUSTERING_STD'], model_data))
+
+    # Check maximal clustering sizes std. dev
+    if max_std > max_sigma:
+        return False
+
+    # Check that all clustering returned in requested size
+    if not all(map(lambda x: x['k'] == len(x['SPLIT_SIZES']), model_data)):
+        return False
+
+    return True
+
+
 class ClusteringModel:
     """Represents a clustering model.
 

@@ -28,9 +28,10 @@ from clustering_model import ClusteringModel as CM
 from eval import EvalClassifier, EV_TIME_TRN, EV_TIME_TST
 from eval import EV_FSCORE, EV_PRE, EV_REC, EV_AUC, EV_CM
 from classifier import ClfFactory
+from clustering_model import is_feasible
 from splitters import RoundRobin, RandomRoundRobin, NoSplit
-from settings import MODELS_DIR, MAX_CLUSTERS_STD
-from settings import FEASIBILITY_REPORT, CLASSIFIERS_REPORT
+from reports import feasible_models
+from settings import MODELS_DIR, CLUSTERS_REPORT, CLASSIFIERS_REPORT
 
 
 dt3 = ClfFactory(DT, random_state=0, max_depth=3)
@@ -87,7 +88,7 @@ def create_clustering_models():
 
                 # Add all clustering models
                 for f, d in zip(nsl_features, nsl_descs):
-                    models.append(CM(nsl, f, d).gen_model(KMeans, n_jobs=-1))
+                    models.append(CM(nsl, f, d).gen_model(KMeans))
                     models.append(CM(nsl, f, d).gen_model(Birch))
 
     for model in models:
@@ -106,22 +107,8 @@ def create_clustering_models():
         model.save(os.path.join(MODELS_DIR, file_name))
 
 
-def is_feasible(model_data):
-    max_std = np.max(map(lambda x: x['CLUSTERING_STD'], model_data))
-
-    # Check maximal clustering sizes std. dev
-    if max_std > MAX_CLUSTERS_STD:
-        return False
-
-    # Check that all clustering returned in requested size
-    if not all(map(lambda x: x['k'] == len(x['SPLIT_SIZES']), model_data)):
-        return False
-
-    return True
-
-
 def clustering_feasibility_report():
-    csv_file = open(FEASIBILITY_REPORT, 'wb')
+    csv_file = open(CLUSTERS_REPORT, 'wb')
     csvwriter = csv.writer(csv_file)
 
     csvwriter.writerow(['Algorithm', 'Features', 'Dataset', 'Encoding',
@@ -200,6 +187,11 @@ def eval_classifiers():
     csv_file.close()
 
 
+def feasible_models_output():
+    ds = feasible_models()
+    ds.to_csv('test2.csv', index=False)
+
 # create_clustering_models()
 # clustering_feasibility_report()
 # eval_classifiers()
+feasible_models_output()

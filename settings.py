@@ -15,7 +15,7 @@ NSL_TEST_FILE = os.path.join(NSL_BASE_DIR, "KDDTest+.txt")
 REPORTS_DIR = r"C:\dev\thesis\reports"
 MODELS_DIR = r"C:\dev\thesis\models"
 
-FEASIBILITY_REPORT = os.path.join(REPORTS_DIR, 'feasibility.csv')
+CLUSTERS_REPORT = os.path.join(REPORTS_DIR, 'clusters.csv')
 CLASSIFIERS_REPORT = os.path.join(REPORTS_DIR, 'classifiers.csv')
 
 MIN_CLUSTER_SIZE = 450
