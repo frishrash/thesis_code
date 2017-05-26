@@ -30,8 +30,9 @@ from eval import EV_FSCORE, EV_PRE, EV_REC, EV_AUC, EV_CM
 from classifier import ClfFactory
 from clustering_model import is_feasible
 from splitters import RoundRobin, RandomRoundRobin, NoSplit
-from reports import feasible_models
-from settings import MODELS_DIR, CLUSTERS_REPORT, CLASSIFIERS_REPORT
+from reports import feasible_models, plot_classifier, plot_scalability
+from settings import MODELS_DIR, GRAPHS_DIR
+from settings import CLUSTERS_REPORT, CLASSIFIERS_REPORT
 
 
 dt3 = ClfFactory(DT, random_state=0, max_depth=3)
@@ -146,6 +147,7 @@ def eval_classifiers():
         header.append("AUC %s" % a)
     csvwriter.writerow(header)
     classifiers = [nn, dt3, rf3, mlp, svmlin]
+    classifiers = [dt3]
 
     for f in listdir(MODELS_DIR):
         algo, features, dataset, encoding, scaling = splitext(f)[0].split('_')
@@ -161,6 +163,7 @@ def eval_classifiers():
 
                 # If feasible (no errors during cross-validation)
                 if ev.eval():
+                    return ev
                     for i, res in enumerate(ev.results):
                         line = [dataset, encoding, scaling, algo, features,
                                 data[i]['k'], ' - '.join(map(lambda x: str(x),
@@ -188,10 +191,23 @@ def eval_classifiers():
 
 
 def feasible_models_output():
-    ds = feasible_models()
-    ds.to_csv('test2.csv', index=False)
+    data = feasible_models()
+    #data.to_csv('test2.csv', index=False)
+    plot_classifier(data, 'NSL Test+', 'DT', 'AUC U2R',
+                    order=[4, 5, 6, 0, 1, 2, 3],
+                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-aucu2r.png'))
+    plot_classifier(data, 'NSL Test+', 'RF', 'F-Score',
+                    order=[4, 5, 6, 0, 1, 2, 3],
+                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-rf-fscore.png'))
+    plot_classifier(data, 'NSL Test+', 'SVM', 'F-Score',
+                    order=[4, 5, 6, 0, 1, 2, 3],
+                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-svm-fscore.png')
+                    )
+    plot_scalability(data, 'NSL Test+', 'KMeans', ["Min-max"], 'F-Score',
+                     file_name=os.path.join(GRAPHS_DIR,
+                                            'nsltst-kmeans-sca-fscore.png'))
 
 # create_clustering_models()
 # clustering_feasibility_report()
 # eval_classifiers()
-feasible_models_output()
+# feasible_models_output()
