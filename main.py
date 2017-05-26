@@ -147,7 +147,6 @@ def eval_classifiers():
         header.append("AUC %s" % a)
     csvwriter.writerow(header)
     classifiers = [nn, dt3, rf3, mlp, svmlin]
-    classifiers = [dt3]
 
     for f in listdir(MODELS_DIR):
         algo, features, dataset, encoding, scaling = splitext(f)[0].split('_')
@@ -163,7 +162,6 @@ def eval_classifiers():
 
                 # If feasible (no errors during cross-validation)
                 if ev.eval():
-                    return ev
                     for i, res in enumerate(ev.results):
                         line = [dataset, encoding, scaling, algo, features,
                                 data[i]['k'], ' - '.join(map(lambda x: str(x),
