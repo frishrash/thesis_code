@@ -18,7 +18,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn import svm
 from sklearn.covariance import EllipticEnvelope
 from os import listdir
-from os.path import join, splitext
+from os.path import join, splitext, basename
 import pickle
 import csv
 
@@ -31,7 +31,7 @@ from classifier import ClfFactory
 from clustering_model import is_feasible
 from splitters import RoundRobin, RandomRoundRobin, NoSplit
 from reports import feasible_models, plot_classifier, plot_scalability
-from settings import MODELS_DIR, GRAPHS_DIR
+from settings import MODELS_DIR, GRAPHS_DIR, CLFS_DIR
 from settings import CLUSTERS_REPORT, CLASSIFIERS_REPORT
 
 
@@ -162,6 +162,13 @@ def eval_classifiers():
 
                 # If feasible (no errors during cross-validation)
                 if ev.eval():
+                    # Dump results
+                    dump_file = "%s_%s.dmp" % (splitext(basename(f))[0],
+                                               classifier.name)
+                    pickle.dump(ev.results, open(join(CLFS_DIR, dump_file),
+                                                 'wb'))
+
+                    # Create report
                     for i, res in enumerate(ev.results):
                         line = [dataset, encoding, scaling, algo, features,
                                 data[i]['k'], ' - '.join(map(lambda x: str(x),
@@ -210,5 +217,5 @@ def feasible_models_output():
 
 # create_clustering_models()
 # clustering_feasibility_report()
-# eval_classifiers()
-feasible_models_output()
+eval_classifiers()
+# feasible_models_output()
