@@ -190,15 +190,18 @@ def eval_classifiers():
 
 def feasible_models_output():
     data = feasible_models()
-    #data.to_csv('test2.csv', index=False)
+    data.to_csv('test3.csv', index=False)
     plot_classifier(data, 'NSL Test+', 'DT', 'AUC U2R',
-                    order=[4, 5, 6, 0, 1, 2, 3],
+                    order=[4, 5, 6, 0, 3, 1, 2],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-aucu2r.png'))
     plot_classifier(data, 'NSL Test+', 'RF', 'F-Score',
-                    order=[4, 5, 6, 0, 1, 2, 3],
+                    order=[4, 5, 6, 0, 3, 1, 2],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-rf-fscore.png'))
+    plot_classifier(data, 'NSL Test+', 'DT', 'F-Score',
+                    order=[4, 5, 6, 0, 3, 1, 2],
+                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-fscore.png'))
     plot_classifier(data, 'NSL Test+', 'SVM', 'F-Score',
-                    order=[4, 5, 6, 0, 1, 2, 3],
+                    order=[4, 5, 6, 0, 3, 1, 2],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-svm-fscore.png')
                     )
     plot_scalability(data, 'NSL Test+', 'KMeans', ["Min-max"], 'F-Score',
@@ -208,4 +211,4 @@ def feasible_models_output():
 # create_clustering_models()
 # clustering_feasibility_report()
 # eval_classifiers()
-# feasible_models_output()
+feasible_models_output()

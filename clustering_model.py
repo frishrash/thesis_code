@@ -9,7 +9,7 @@ import time
 import pickle
 import numpy as np
 from splitters import ClusterWrapper
-from settings import MIN_CLUSTER_SIZE, MAX_CLUSTER_SIZE, MAX_CLUSTERS_STD
+from settings import MAX_CLUSTERS_STD
 
 
 def is_feasible(model_data, max_sigma=MAX_CLUSTERS_STD):

@@ -18,9 +18,7 @@ MODELS_DIR = os.path.join(THESIS_DIR, 'models')
 GRAPHS_DIR = os.path.join(THESIS_DIR, 'graphs')
 
 CLUSTERS_REPORT = os.path.join(REPORTS_DIR, 'clusters.csv')
-CLASSIFIERS_REPORT = os.path.join(REPORTS_DIR, '__classifiers.csv')
+CLASSIFIERS_REPORT = os.path.join(REPORTS_DIR, 'classifiers.csv')
 
-MIN_CLUSTER_SIZE = 450
-MAX_CLUSTER_SIZE = 15550
 MAX_CLUSTERS_STD = 6000
 MAX_CLUSTERS_RATIO = 25

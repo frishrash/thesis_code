@@ -75,6 +75,7 @@ def feasible_models(sigma=MAX_CLUSTERS_STD):
                 clf_rec = data_add_column(clf_rec, data, 'MINMAX_RATIO')
                 clf_rec = data_add_column(clf_rec, data, 'MAX_SPLIT_SIZE')
                 clf_rec = data_add_column(clf_rec, data, 'MIN_SPLIT_SIZE')
+                clf_rec = data_add_column(clf_rec, data, 'CLUSTERING_STD')
                 feasible_records.append(clf_rec)
 
     # Merge everything gathered until now to a single DataFrame
@@ -165,7 +166,7 @@ def pretty_xaxis(l):
         if t.find('Birch') != -1:
             entry = 'BIRCH'
         elif t.find('KMeans') != -1:
-            entry = 'KMeans'
+            entry = 'K-means'
         elif t.find('NoSplit') != -1:
             entry = 'Baseline'
         elif t.find('Random') != -1:
