@@ -19,7 +19,8 @@ GRAPHS_DIR = os.path.join(THESIS_DIR, 'graphs')
 CLFS_DIR = os.path.join(THESIS_DIR, 'classifiers')
 
 CLUSTERS_REPORT = os.path.join(REPORTS_DIR, 'clusters.csv')
-CLASSIFIERS_REPORT = os.path.join(REPORTS_DIR, 'tst-classifiers.csv')
+CLASSIFIERS_REPORT = os.path.join(REPORTS_DIR, 'classifiers.csv')
+FEASIBLES_REPORT = os.path.join(REPORTS_DIR, 'feasibles.csv')
 
 MAX_CLUSTERS_STD = 6000
 MAX_CLUSTERS_RATIO = 25

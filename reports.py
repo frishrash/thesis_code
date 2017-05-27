@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 
-from settings import CLASSIFIERS_REPORT, MODELS_DIR
+from settings import CLASSIFIERS_REPORT, MODELS_DIR, CLFS_DIR
 from settings import MAX_CLUSTERS_STD, MAX_CLUSTERS_RATIO
 from clustering_model import is_feasible
 
@@ -26,7 +26,7 @@ from clustering_model import is_feasible
 def select(df, h):
     out = df
     for k, v in h.iteritems():
-        if (v.__class__ == str):
+        if (v.__class__ == str or v.__class__ == int):
             out = out[out[k] == v]
         elif (v.__class__ == list):
             out = out[out[k].isin(v)]
@@ -121,6 +121,8 @@ def feasible_models(sigma=MAX_CLUSTERS_STD):
 
     return result[filt]
 
+    # TODO: remove all of the below when unnecessary
+
     # Aggregate data according to algorithm, features and count records
     piv = pd.pivot_table(final_records, values=[], index=['Algo', 'Features'],
                          aggfunc=lambda x: len(x))
@@ -156,6 +158,23 @@ def feasible_models(sigma=MAX_CLUSTERS_STD):
                     ((result['Count1'] == 36) & (result['Algo'] == 'NoSplit'))]
 
     return result
+
+
+def short_legend_entry(algo, features):
+    pretty_algo = {'KMeans': 'K-means',
+                   'NoSplit': 'Baseline',
+                   'Birch': 'BIRCH',
+                   'RoundRobin': 'Round Robin',
+                   'RandomRoundRobin': 'Unified Random'}
+    features_tbl = {'100 connections same host': 3,
+                    'all 2 secs': 6,
+                    'all history based features': 7,
+                    'single TCP features': 5}
+
+    if features not in features_tbl:
+        return pretty_algo[algo]
+    else:
+        return '%s [%d]' % (pretty_algo[algo], features_tbl[features])
 
 
 def pretty_xaxis(l):
@@ -270,3 +289,180 @@ def plot_scalability(data, dataset, algo, scaling, score, file_name=None,
     plot_bars(x, ['K'], score, file_name, order, ylim_lower=0.8,
               xlabel='Number of Clusters (k)', rot=0,
               plot_colors=[(0.9, 0.9, 0.9, 1.0)])
+
+
+def plot_max_ratio(data, algo, file_name=None, order=None):
+    x = select(data, {'Algo': algo})
+    plot_bars(x, ['Algo', 'Features'], 'MODEL_MAX_RATIO', file_name, order,
+              naming_fn=pretty_xaxis, horizontalalignment='right',
+              ylim_upper=25, plot_colors=[(0.9, 0.9, 0.9, 1.0)])
+
+
+def plot_roc(data, dataset, scaling, encoding, classifier, k, label,
+             file_name=None, order=None):
+    markers = {'No Split': '',  # * 8
+               'Round Robin': '',
+               'Random Round Robin': '',
+               'KMeans': '*',
+               'Birch': ''}
+
+    line_styles = {'No Split': '-',  # * 8
+                   'Round Robin': '--',
+                   'Random Round Robin': '--',
+                   'KMeans': '-',
+                   'Birch': '-'}
+    matplotlib.rcParams.update({'font.family': 'Times New Roman'})
+    if file_name:
+        plt.ioff()
+    else:
+        plt.ion()
+    plt.ioff()
+    p = plt.figure(figsize=(10, 6.5))
+    ax = p.add_subplot(111)
+    ax.set_axis_bgcolor('white')
+    ax.grid(True, linestyle='--', linewidth='0.5', color=(0.2, 0.2, 0.2, 1),
+            axis='both')
+    ax.set_axisbelow(True)
+    # ax.xaxis.tick_top()
+    # ax.tick_params(direction='out', pad=50)
+    # ax.xaxis.set_label_position('top')
+    plt.xticks(fontsize=26)
+    plt.yticks(fontsize=26)
+
+    scope = 0.65  # 0.65
+    plt.xlim([0.0, scope])
+    plt.ylim([1.0-scope, 1.0])
+    legend = []
+    # if order is None:
+    #     order = xrange(0, num_results)
+
+    line_widths = [12, 8, 8, 6, 6, 6, 6, 6]
+    line_styles = ['-', '--', '--', '-', '-', '-', '-', '-']
+    markers = ['', '', '', 'o', '^', 'v', 's', 'p']
+    mark_every = [10, 10, 10, (20, 1000), (8, 100), (9, 100), (30, 100)]
+
+    num_results = len(pd.pivot_table(data, values=[],
+                                     index=['Algo', 'Features'],
+                                     aggfunc=lambda x: len(x)))
+    cmap_greys_full = LinearSegmentedColormap.from_list('my_colormap',
+                                                        ((0.7, 0.7, 0.7, 1),
+                                                         (0.2, 0.2, 0.2, 1)),
+                                                        N=num_results,
+                                                        gamma=1.0)
+    colors_full = [cmap_greys_full(float(i)/num_results) for i in
+                   range(0, num_results+1)]
+
+    x = select(data, {'Dataset': dataset,
+                      'Scaling': scaling,
+                      'Encoding': encoding,
+                      'Classifier': classifier})
+    reverse_cols = {}
+    for i, col in enumerate(x.columns):
+        reverse_cols[col] = i
+
+    i = 0
+    results = []
+    for r in x.iterrows():
+        algo = r[1][reverse_cols['Algo']]
+        k_ = r[1][reverse_cols['K']]
+        # We want to include the baseline so we don't originally select with
+        # specific K, to include it in selection (since it is always k=1), then
+        # we filter out all irrelevant K's expect for baseline
+        if k != k_ and algo != 'NoSplit':
+            continue
+        features = r[1][reverse_cols['Features']]
+        clf_file = '%s_%s_%s_%s_%s_%s.dmp' % (algo, features, dataset,
+                                              encoding, scaling, classifier)
+
+        model = pickle.load(open(join(CLFS_DIR, clf_file), 'rb'))
+        index = 0 if algo == 'NoSplit' else k-3
+        result = {'Algo': algo,
+                  'Features': features,
+                  'TPR': model[index]['TPR'][label],
+                  'FPR': model[index]['FPR'][label],
+                  'AUC': model[index]['AUC'][label]}
+        results.append(result)
+
+    if order is not None:
+        results = [z for (y, z) in sorted(zip(order, results))]
+
+    for i, result in enumerate(results):
+        plt.plot(result['FPR'], result['TPR'],
+                 linewidth=line_widths[i],
+                 color=colors_full[i],
+                 linestyle=line_styles[i],
+                 marker=markers[i],
+                 markersize=29,
+                 markevery=mark_every[i])
+        line = '%s: %s%.2f' % (short_legend_entry(result['Algo'],
+                                                  result['Features']),
+                               'AUC=' if i == 0 else '',
+                               result['AUC'])
+        legend.append(line)
+        i = i+1
+
+    plt.xlabel('False Positive Rate', fontsize=26)
+    plt.ylabel('True Positive Rate', fontsize=26)
+    l = ax.legend(legend, loc='lower right', bbox_to_anchor=[1.03, -0.04],
+                  prop={'size': 26}, frameon=True, ncol=1)
+    frame = l.get_frame()
+    frame.set_facecolor('white')
+    frame.set_edgecolor('black')
+    plt.tight_layout()
+    if file_name is not None:
+        p.savefig(file_name)
+        plt.close(p)
+    else:
+        plt.show()
+
+
+def plot_class_distribution(algo, features, dataset, encoding, scaling, k,
+                            percentage=True, file_name=None):
+    model_file = "%s_%s_%s_%s_%s.dmp" % (algo, features, dataset, encoding,
+                                         scaling)
+    model = pickle.load(open(join(MODELS_DIR, model_file), 'rb'))
+    data = pd.DataFrame(model[k-3]['LABEL_COUNTS']).T
+    if percentage:
+        for col in data.columns:
+            data[col] = data[col]*100/data[col].sum()
+    data = data.T
+
+    # Create Figure
+    p = plt.figure(figsize=(10, 6))
+    ax = p.add_subplot(111)
+    ax.set_axis_bgcolor('white')
+
+    ax.grid(True, linestyle='--', linewidth='0.5', color='black', axis='y')
+    ax.set_axisbelow(True)
+
+    cmap_greys = LinearSegmentedColormap.from_list("my_colormap",
+                                                   ((0.2, 0.2, 0.2),
+                                                    (0.95, 0.95, 0.95)),
+                                                   N=5, gamma=1.0)
+    colors = [cmap_greys(float(i)/5) for i in range(0, 5)]
+
+    data.plot(ax=ax, kind='bar', stacked=True, legend=True, color=colors,
+              rot=30, width=0.8)
+    ax.set_xticklabels(range(1, len(data)+1))
+
+    if percentage:
+        plt.ylim(0, 115)
+    plt.xticks(fontsize=26)
+    plt.yticks(fontsize=26)
+
+    ax.set_ylabel('Class Percentage', fontsize=26)
+    ax.set_xlabel('Clusters', fontsize=26)
+
+    l = ax.legend(data.columns, loc=3, bbox_to_anchor=[0., 0.92, 1., .102],
+                  prop={'size': 21}, frameon=True, ncol=5, mode="expand",
+                  borderaxespad=0.)
+    frame = l.get_frame()
+    frame.set_facecolor('white')
+    frame.set_edgecolor('black')
+
+    plt.tight_layout()
+    if file_name is not None:
+        p.savefig(file_name)
+        plt.close(p)
+    else:
+        plt.show()

@@ -31,8 +31,9 @@ from classifier import ClfFactory
 from clustering_model import is_feasible
 from splitters import RoundRobin, RandomRoundRobin, NoSplit
 from reports import feasible_models, plot_classifier, plot_scalability
+from reports import plot_max_ratio, plot_roc, plot_class_distribution
 from settings import MODELS_DIR, GRAPHS_DIR, CLFS_DIR
-from settings import CLUSTERS_REPORT, CLASSIFIERS_REPORT
+from settings import CLUSTERS_REPORT, CLASSIFIERS_REPORT, FEASIBLES_REPORT
 
 
 dt3 = ClfFactory(DT, random_state=0, max_depth=3)
@@ -197,7 +198,7 @@ def eval_classifiers():
 
 def feasible_models_output():
     data = feasible_models()
-    data.to_csv('test3.csv', index=False)
+    data.to_csv(FEASIBLES_REPORT, index=False)
     plot_classifier(data, 'NSL Test+', 'DT', 'AUC U2R',
                     order=[4, 5, 6, 0, 3, 1, 2],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-aucu2r.png'))
@@ -214,8 +215,21 @@ def feasible_models_output():
     plot_scalability(data, 'NSL Test+', 'KMeans', ["Min-max"], 'F-Score',
                      file_name=os.path.join(GRAPHS_DIR,
                                             'nsltst-kmeans-sca-fscore.png'))
-
+    plot_max_ratio(data, 'KMeans', order=[0, 3, 1, 2],
+                   file_name=os.path.join(GRAPHS_DIR, 'max-ratio-kmeans.png'))
+    plot_max_ratio(data, ['KMeans', 'NoSplit', 'RoundRobin',
+                          'RandomRoundRobin'],
+                   order=[4, 5, 6, 0, 3, 1, 2],
+                   file_name=os.path.join(GRAPHS_DIR, 'max-ratio-all.png'))
+    plot_roc(data, 'NSL Test+', 'Min-max', 'Hot Encode', 'DT', 9, 'U2R',
+             order=[3, 5, 6, 4, 0, 1, 2],
+             file_name=os.path.join(GRAPHS_DIR,
+                                    'nsltst-roc-u2r-dt-9-minmax-onehot.png'))
+    plot_class_distribution('KMeans', '100 connections same host', 'NSL Test+',
+                            'Hot Encode', 'Min-max', 9,
+                            file_name=os.path.join(GRAPHS_DIR,
+                                                   'class-dist.png'))
 # create_clustering_models()
 # clustering_feasibility_report()
-eval_classifiers()
-# feasible_models_output()
+# eval_classifiers()
+feasible_models_output()
