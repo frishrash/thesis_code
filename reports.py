@@ -257,6 +257,8 @@ def plot_bars(df, columns, score, file_name=None, order=None, ylim_upper=1,
         ax.set_ylabel('Average F-score', fontsize=26)
     elif (score.find('AUC') != -1):
         ax.set_ylabel('Area Under Curve', fontsize=26)
+    elif (score.find('MODEL_MAX_RATIO') != -1):
+        ax.set_ylabel('Maximal Ratio', fontsize=26)
     ax.set_xlabel(xlabel, fontsize=26)
     plt.tight_layout()
     if file_name is not None:
