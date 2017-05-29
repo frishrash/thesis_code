@@ -7,6 +7,7 @@ Created on Sat May 20 17:40:33 2017
 
 import os
 import numpy as np
+import pandas as pd
 from sklearn.cluster import KMeans, Birch
 from sklearn.ensemble import RandomForestClassifier as RF
 from sklearn.ensemble import BaggingClassifier
@@ -32,11 +33,15 @@ from clustering_model import is_feasible
 from splitters import RoundRobin, RandomRoundRobin, NoSplit
 from reports import feasible_models, plot_classifier, plot_scalability
 from reports import plot_max_ratio, plot_roc, plot_class_distribution
+from reports import plot_classifier_info
 from settings import MODELS_DIR, GRAPHS_DIR, CLFS_DIR
 from settings import CLUSTERS_REPORT, CLASSIFIERS_REPORT, FEASIBLES_REPORT
 
 
 dt3 = ClfFactory(DT, random_state=0, max_depth=3)
+dt4 = ClfFactory(DT, random_state=0, max_depth=4)
+dt5 = ClfFactory(DT, random_state=0, max_depth=5)
+dt6 = ClfFactory(DT, random_state=0, max_depth=6)
 dt3e = ClfFactory(DT, random_state=0, criterion='entropy', max_depth=3)
 dt3eb = ClfFactory(DT, random_state=0, max_depth=3, criterion='entropy',
                    class_weight='balanced')
@@ -90,7 +95,8 @@ def create_clustering_models():
 
                 # Add all clustering models
                 for f, d in zip(nsl_features, nsl_descs):
-                    models.append(CM(nsl, f, d).gen_model(KMeans))
+                    models.append(CM(nsl, f, d).gen_model(KMeans,
+                                                          random_state=0))
                     models.append(CM(nsl, f, d).gen_model(Birch))
 
     for model in models:
@@ -148,6 +154,7 @@ def eval_classifiers():
         header.append("AUC %s" % a)
     csvwriter.writerow(header)
     classifiers = [nn, dt3, rf3, mlp, svmlin]
+    classifiers = [dt4, dt5, dt6]
 
     for f in listdir(MODELS_DIR):
         algo, features, dataset, encoding, scaling = splitext(f)[0].split('_')
@@ -199,36 +206,57 @@ def eval_classifiers():
 def feasible_models_output():
     data = feasible_models()
     data.to_csv(FEASIBLES_REPORT, index=False)
+
     plot_classifier(data, 'NSL Test+', 'DT', 'AUC U2R',
-                    order=[4, 5, 6, 0, 3, 1, 2],
+                    order=[3, 4, 5, 0, 2, 1],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-aucu2r.png'))
-    plot_classifier(data, 'NSL Test+', 'RF', 'F-Score',
-                    order=[4, 5, 6, 0, 3, 1, 2],
-                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-rf-fscore.png'))
+    # plot_classifier(data, 'NSL Test+', 'RF', 'F-Score',
+    #               order=[3, 4, 5, 0, 2, 1],
+    #               file_name=os.path.join(GRAPHS_DIR, 'nsltst-rf-fscore.png'))
     plot_classifier(data, 'NSL Test+', 'DT', 'F-Score',
-                    order=[4, 5, 6, 0, 3, 1, 2],
+                    order=[3, 4, 5, 0, 2, 1],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-fscore.png'))
     plot_classifier(data, 'NSL Test+', 'SVM', 'F-Score',
-                    order=[4, 5, 6, 0, 3, 1, 2],
+                    order=[3, 4, 5, 0, 2, 1],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-svm-fscore.png')
                     )
+
+    plot_classifier(data, 'NSL Test+', 'kNN', 'F-Score',
+                    order=[3, 4, 5, 0, 2, 1],
+                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-knn-fscore.png')
+                    )
+
+    plot_classifier(data, 'NSL Test+', 'MLPClassifier', 'F-Score',
+                    order=[3, 4, 5, 0, 2, 1],
+                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-mlp-fscore.png')
+                    )
+
     plot_scalability(data, 'NSL Test+', 'KMeans', ["Min-max"], 'F-Score',
                      file_name=os.path.join(GRAPHS_DIR,
                                             'nsltst-kmeans-sca-fscore.png'))
-    plot_max_ratio(data, 'KMeans', order=[0, 3, 1, 2],
-                   file_name=os.path.join(GRAPHS_DIR, 'max-ratio-kmeans.png'))
     plot_max_ratio(data, ['KMeans', 'NoSplit', 'RoundRobin',
                           'RandomRoundRobin'],
-                   order=[4, 5, 6, 0, 3, 1, 2],
+                   order=[3, 4, 5, 0, 2, 1],
                    file_name=os.path.join(GRAPHS_DIR, 'max-ratio-all.png'))
     plot_roc(data, 'NSL Test+', 'Min-max', 'Hot Encode', 'DT', 9, 'U2R',
-             order=[3, 5, 6, 4, 0, 1, 2],
+             order=[3, 5, 4, 0, 1, 2],
              file_name=os.path.join(GRAPHS_DIR,
                                     'nsltst-roc-u2r-dt-9-minmax-onehot.png'))
     plot_class_distribution('KMeans', '100 connections same host', 'NSL Test+',
                             'Hot Encode', 'Min-max', 9,
                             file_name=os.path.join(GRAPHS_DIR,
-                                                   'class-dist.png'))
+                                                   'class-dist-kmeans.png'))
+    plot_class_distribution('RoundRobin', 'All',
+                            'NSL Test+', 'Hot Encode', 'Min-max', 9,
+                            file_name=os.path.join(GRAPHS_DIR,
+                                                   'class-dist-rr.png'))
+
+    data2 = pd.read_csv('C:/dev/thesis/reports/classifiers_dt456.csv')
+    plot_classifier_info(pd.concat([data, data2]), 'DT',
+                         order=[3, 4, 5, 0, 2, 1],
+                         file_name=os.path.join(GRAPHS_DIR,
+                                                'baseline-dt-comparison.png'))
+
 # create_clustering_models()
 # clustering_feasibility_report()
 # eval_classifiers()

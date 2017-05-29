@@ -75,7 +75,7 @@ class EvalClassifier():
         labels = NSL.get_labels(ds)
 
         # skf = StratifiedKFold(labels, n_splits=kfold) # SciKit 0.17
-        skf = StratifiedKFold(n_splits=kfold)
+        skf = StratifiedKFold(n_splits=kfold, random_state=0)
         trn_timer = 0
         tst_timer = 0
 

@@ -111,6 +111,7 @@ def feasible_models(sigma=MAX_CLUSTERS_STD):
     #   2 datasets x 7 k's x 5 classifiers = 70 records for min-max scaling.
     #   2 datasets x 7 k's x 4 classifiers = 56 records for no scaling.
     # For the baseline (NoSplit) similar calculation but with single k
+    # No split was 10,8. Now 16,14 for DT4-6
     filt = (((result['Count'] == 70) & (result['Scaling'] == 'Min-max')) |
             ((result['Count'] == 56) & (result['Scaling'] == 'None')) |
             ((result['Count'] == 10) & (result['Scaling'] == 'Min-max') &
@@ -170,7 +171,6 @@ def short_legend_entry(algo, features):
                     'all 2 secs': 6,
                     'all history based features': 7,
                     'single TCP features': 5}
-
     if features not in features_tbl:
         return pretty_algo[algo]
     else:
@@ -213,13 +213,16 @@ def pretty_xaxis(l):
 def plot_bars(df, columns, score, file_name=None, order=None, ylim_upper=1,
               ylim_lower=0.7, rot=30, bar_width=0.8, naming_fn=None,
               horizontalalignment='center', plot_colors=[(0.7, 0.7, 0.7, 1)],
-              xlabel=''):
+              xlabel='', print_table=False):
 
     piv = pd.pivot_table(df, values=[score], index=columns,
                          aggfunc=[np.average])
 
     err_std = pd.pivot_table(df, values=[score], index=columns,
                              aggfunc=[np.std])
+    if print_table:
+        print(piv)
+        print(err_std)
 
     # Reorder columns
     if order is not None:
@@ -290,14 +293,36 @@ def plot_scalability(data, dataset, algo, scaling, score, file_name=None,
     x = select(data, filters)
     plot_bars(x, ['K'], score, file_name, order, ylim_lower=0.8,
               xlabel='Number of Clusters (k)', rot=0,
-              plot_colors=[(0.9, 0.9, 0.9, 1.0)])
+              plot_colors=[(0.9, 0.9, 0.9, 1.0)], print_table=True)
 
 
 def plot_max_ratio(data, algo, file_name=None, order=None):
     x = select(data, {'Algo': algo})
     plot_bars(x, ['Algo', 'Features'], 'MODEL_MAX_RATIO', file_name, order,
               naming_fn=pretty_xaxis, horizontalalignment='right',
-              ylim_upper=25, plot_colors=[(0.9, 0.9, 0.9, 1.0)])
+              ylim_upper=18, plot_colors=[(0.9, 0.9, 0.9, 1.0)])
+
+
+def legend_clf_info(legend):
+    out = []
+    for t in legend:
+        s = str(t.get_text())
+        parts = s.translate(None, '()').split(',')
+        parts = map(lambda x: x.strip(), parts)
+        algo = short_legend_entry(parts[0], parts[1])
+        clf = parts[3].replace('Depth ', 'DT')
+        out.append('%s, %s' % (algo, clf))
+    return out
+
+
+def plot_classifier_info(data, classifier, file_name=None, order=None):
+    x = select(data, {'Algo': ['KMeans', 'NoSplit'],
+                      'Classifier': classifier,
+                      'Classifier Info': ['Depth 3, Gini',
+                                          'Depth 4, Gini', 'Depth 5, Gini']})
+    plot_bars(x, ['Algo', 'Features', 'Classifier', 'Classifier Info'],
+              'F-Score', file_name, order, naming_fn=legend_clf_info,
+              horizontalalignment='right', plot_colors=[(0.9, 0.9, 0.9, 1.0)])
 
 
 def plot_roc(data, dataset, scaling, encoding, classifier, k, label,
@@ -341,7 +366,7 @@ def plot_roc(data, dataset, scaling, encoding, classifier, k, label,
     line_widths = [12, 8, 8, 6, 6, 6, 6, 6]
     line_styles = ['-', '--', '--', '-', '-', '-', '-', '-']
     markers = ['', '', '', 'o', '^', 'v', 's', 'p']
-    mark_every = [10, 10, 10, (20, 1000), (8, 100), (9, 100), (30, 100)]
+    mark_every = [10, 10, 10, (20, 1000), (25, 100), (20, 100), (30, 100)]
 
     num_results = len(pd.pivot_table(data, values=[],
                                      index=['Algo', 'Features'],
@@ -367,6 +392,8 @@ def plot_roc(data, dataset, scaling, encoding, classifier, k, label,
     for r in x.iterrows():
         algo = r[1][reverse_cols['Algo']]
         k_ = r[1][reverse_cols['K']]
+        scaling = r[1][reverse_cols['Scaling']]
+        encoding = r[1][reverse_cols['Encoding']]
         # We want to include the baseline so we don't originally select with
         # specific K, to include it in selection (since it is always k=1), then
         # we filter out all irrelevant K's expect for baseline
@@ -380,6 +407,8 @@ def plot_roc(data, dataset, scaling, encoding, classifier, k, label,
         index = 0 if algo == 'NoSplit' else k-3
         result = {'Algo': algo,
                   'Features': features,
+                  'Scaling': scaling,
+                  'Encoding': encoding,
                   'TPR': model[index]['TPR'][label],
                   'FPR': model[index]['FPR'][label],
                   'AUC': model[index]['AUC'][label]}
@@ -430,7 +459,7 @@ def plot_class_distribution(algo, features, dataset, encoding, scaling, k,
     data = data.T
 
     # Create Figure
-    p = plt.figure(figsize=(10, 6))
+    p = plt.figure(figsize=(10, 4.7))
     ax = p.add_subplot(111)
     ax.set_axis_bgcolor('white')
 
@@ -444,7 +473,7 @@ def plot_class_distribution(algo, features, dataset, encoding, scaling, k,
     colors = [cmap_greys(float(i)/5) for i in range(0, 5)]
 
     data.plot(ax=ax, kind='bar', stacked=True, legend=True, color=colors,
-              rot=30, width=0.8)
+              rot=0, width=0.8)
     ax.set_xticklabels(range(1, len(data)+1))
 
     if percentage:
@@ -452,10 +481,10 @@ def plot_class_distribution(algo, features, dataset, encoding, scaling, k,
     plt.xticks(fontsize=26)
     plt.yticks(fontsize=26)
 
-    ax.set_ylabel('Class Percentage', fontsize=26)
-    ax.set_xlabel('Clusters', fontsize=26)
+    ax.set_ylabel('Flow Label Distribution', fontsize=26)
+    ax.set_xlabel('Cluster Number', fontsize=26)
 
-    l = ax.legend(data.columns, loc=3, bbox_to_anchor=[0., 0.92, 1., .102],
+    l = ax.legend(data.columns, loc=3, bbox_to_anchor=[0., 0.9, 1., .102],
                   prop={'size': 21}, frameon=True, ncol=5, mode="expand",
                   borderaxespad=0.)
     frame = l.get_frame()
