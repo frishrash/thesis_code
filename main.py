@@ -34,7 +34,7 @@ from splitters import RoundRobin, RandomRoundRobin, NoSplit
 from reports import feasible_models, plot_classifier, plot_scalability
 from reports import plot_max_ratio, plot_roc, plot_class_distribution
 from reports import plot_classifier_info
-from settings import MODELS_DIR, GRAPHS_DIR, CLFS_DIR
+from settings import MODELS_DIR, GRAPHS_DIR, CLFS_DIR, REPORTS_DIR
 from settings import CLUSTERS_REPORT, CLASSIFIERS_REPORT, FEASIBLES_REPORT
 
 
@@ -251,7 +251,10 @@ def feasible_models_output():
                             file_name=os.path.join(GRAPHS_DIR,
                                                    'class-dist-rr.png'))
 
-    data2 = pd.read_csv('C:/dev/thesis/reports/classifiers_dt456.csv')
+    # Important: report 'classifiers_dt456.csv' was produced manually !!!
+    # Todo: refactor models creation such that DT4, DT5, DT6 dumps will be on
+    # separate files so report can be produced programatically
+    data2 = pd.read_csv(join(REPORTS_DIR, 'classifiers_dt456.csv'))
     plot_classifier_info(pd.concat([data, data2]), 'DT',
                          order=[3, 4, 5, 0, 2, 1],
                          file_name=os.path.join(GRAPHS_DIR,
