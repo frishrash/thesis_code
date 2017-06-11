@@ -98,7 +98,14 @@ def create_clustering_models():
                     models.append(CM(nsl, f, d).gen_model(KMeans,
                                                           random_state=0))
                     models.append(CM(nsl, f, d).gen_model(KMeansBal,
-                                                          random_state=0))
+                                                          random_state=0,
+                                                          clusters_factor=3))
+                    models.append(CM(nsl, f, d).gen_model(KMeansBal,
+                                                          random_state=0,
+                                                          clusters_factor=4))
+                    models.append(CM(nsl, f, d).gen_model(KMeansBal,
+                                                          random_state=0,
+                                                          clusters_factor=5))
                     models.append(CM(nsl, f, d).gen_model(Birch))
 
     for model in models:
@@ -156,7 +163,8 @@ def eval_classifiers():
         header.append("AUC %s" % a)
     csvwriter.writerow(header)
     classifiers = [nn, dt3, rf3, mlp, svmlin]
-    classifiers = [dt4, dt5, dt6]
+    classifiers = [dt3, rf3]
+    # classifiers = [dt4, dt5, dt6]
 
     for f in listdir(MODELS_DIR):
         algo, features, dataset, encoding, scaling = splitext(f)[0].split('_')

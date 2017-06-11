@@ -117,7 +117,9 @@ def feasible_models(sigma=MAX_CLUSTERS_STD):
             ((result['Count'] == 10) & (result['Scaling'] == 'Min-max') &
              (result['Algo'] == 'NoSplit')) |
             ((result['Count'] == 8) & (result['Scaling'] == 'None') &
-             (result['Algo'] == 'NoSplit'))) & \
+             (result['Algo'] == 'NoSplit')) |
+            ((result['Count'] == 28) &
+             (result['Algo'].str.startswith('KMeansBal')))) & \
            (result['MODEL_MAX_RATIO'] < MAX_CLUSTERS_RATIO)
 
     return result[filt]
