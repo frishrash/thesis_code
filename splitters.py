@@ -60,11 +60,11 @@ class KMeansBal:
                  precompute_distances='auto', verbose=0, random_state=None,
                  copy_x=True, n_jobs=1, algorithm='auto'):
         self.n_clusters = n_clusters
-        self.algo = KMeans(n_clusters=n_clusters*clusters_factor, init=init,
-                           n_init=n_init, max_iter=max_iter, tol=tol,
-                           precompute_distances=precompute_distances,
-                           verbose=verbose, random_state=random_state,
-                           copy_x=copy_x, n_jobs=n_jobs, algorithm=algorithm)
+        self.km = KMeans(n_clusters=n_clusters*clusters_factor, init=init,
+                         n_init=n_init, max_iter=max_iter, tol=tol,
+                         precompute_distances=precompute_distances,
+                         verbose=verbose, random_state=random_state,
+                         copy_x=copy_x, n_jobs=n_jobs, algorithm=algorithm)
 
     def fit_predict(self, X, y=None):
         """Compute cluster centers and predict cluster index for each sample.
@@ -72,7 +72,7 @@ class KMeansBal:
         Convenience method; equivalent to calling fit(X) followed by
         predict(X).
         """
-        result = self.algo.fit_predict(X, y)
+        result = self.km.fit_predict(X, y)
         clusters_map, cluster_sizes = self._balance_clusters(result,
                                                              self.n_clusters)
 
