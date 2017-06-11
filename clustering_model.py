@@ -48,6 +48,8 @@ class ClusteringModel:
 
     def gen_model(self, class_, *args, **kwargs):
         self.algorithm = class_.__name__
+        if (self.algorithm == 'KMeansBal' and 'clusters_factor' in kwargs):
+            self.algorithm = self.algorithm + str(kwargs['clusters_factor'])
         self.splitters = []
         for i in xrange(self.min_k, self.max_k+1):
             splitter = ClusterWrapper(class_, n_clusters=i, *args, **kwargs)
@@ -55,20 +57,6 @@ class ClusteringModel:
                 splitter.limit_features(self.features, self.features_desc)
             self.splitters.append(splitter)
         return self
-
-    def _is_feasible(self, splits):
-        split_sizes = map(lambda x: len(x), splits)
-        min_split_size = np.min(split_sizes)
-        max_split_size = np.max(split_sizes)
-        clustering_std = np.std(split_sizes)
-        if min_split_size < MIN_CLUSTER_SIZE:
-            return False
-        if max_split_size > MAX_CLUSTER_SIZE:
-            return False
-        if clustering_std > MAX_CLUSTERS_STD:
-            return False
-
-        return True
 
     def run(self):
         split_times = []
