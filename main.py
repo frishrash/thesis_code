@@ -19,7 +19,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn import svm
 from sklearn.covariance import EllipticEnvelope
 from os import listdir
-from os.path import join, splitext, basename
+from os.path import join, splitext, basename, isfile
 import pickle
 import csv
 
@@ -163,7 +163,6 @@ def eval_classifiers():
         header.append("AUC %s" % a)
     csvwriter.writerow(header)
     classifiers = [nn, dt3, rf3, mlp, svmlin]
-    classifiers = [dt3, rf3]
     # classifiers = [dt4, dt5, dt6]
 
     for f in listdir(MODELS_DIR):
@@ -175,14 +174,17 @@ def eval_classifiers():
                 # Evaluate SVM only when min-max scaled (time constraint)
                 if classifier.name == 'SVM' and scaling != 'Min-max':
                     continue
+                dump_file = "%s_%s.dmp" % (splitext(basename(f))[0],
+                                           classifier.name)
+                if (isfile(join(CLFS_DIR, dump_file))):
+                    print('Skipping %s, %s' % (f, classifier.name))
+                    continue
                 print('Working on %s, classifier %s' % (f, classifier.name))
                 ev = EvalClassifier(ds_, data, classifier, calc_prob=True)
 
                 # If feasible (no errors during cross-validation)
                 if ev.eval():
                     # Dump results
-                    dump_file = "%s_%s.dmp" % (splitext(basename(f))[0],
-                                               classifier.name)
                     pickle.dump(ev.results, open(join(CLFS_DIR, dump_file),
                                                  'wb'))
 
@@ -272,5 +274,5 @@ def feasible_models_output():
 
 # create_clustering_models()
 # clustering_feasibility_report()
-# eval_classifiers()
-feasible_models_output()
+eval_classifiers()
+# feasible_models_output()
