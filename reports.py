@@ -163,6 +163,9 @@ def feasible_models(sigma=MAX_CLUSTERS_STD):
 
 def short_legend_entry(algo, features):
     pretty_algo = {'KMeans': 'K-means',
+                   'KMeansBal3': 'K-means B3',
+                   'KMeansBal4': 'K-means B4',
+                   'KMeansBal5': 'K-means B5',
                    'NoSplit': 'Baseline',
                    'Birch': 'BIRCH',
                    'RoundRobin': 'Round Robin',
