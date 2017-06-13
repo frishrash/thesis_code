@@ -6,8 +6,12 @@ Created on Sat May 20 14:16:15 2017
 """
 
 from random import randint
+import metis
+import networkx as nx
 import numpy as np
 from sklearn.cluster import KMeans
+from sklearn.neighbors import KDTree
+from sklearn.preprocessing import MinMaxScaler
 from dataset import split_ds
 
 
@@ -52,6 +56,68 @@ class ClusterWrapper:
 
         # Return actual clusters as list of Pandas DataFrames
         return split_ds(clustering_result, ds)
+
+
+class MultiPart:
+    """Multilevel k-way partitioning scheme for irregular graphs.
+
+    This class produces a weighted graph. Each vertex represents a data point.
+    Its edges represent distances to its N nearest neighbors. The graph is then
+    partitioned using multilevel k-way partition scheme, minimizing edges' sum.
+
+    Prerequisite packages:
+        metis
+        networkx
+
+    More info on METIS: http://glaros.dtc.umn.edu/gkhome/metis/metis/overview
+
+    Bibtex: G. Karypis and V. Kumar. Multilevel k-way partitioning scheme for
+    irregular graphs. Journal of Parallel and Distributed Computing,
+    48(1):96–129, 1998.
+    """
+
+    dataset_id_cache = None
+    graph_cache = None
+
+    def __init__(self, n_clusters=8, nearest_neighbors=100, leaf_size=50,
+                 metric='euclidean'):
+        self.n_clusters = n_clusters
+        self.nearest_neighbors = nearest_neighbors
+        self.leaf_size = leaf_size
+        self.metric = metric
+
+    def fit_predict(self, X, y=None):
+        """ Partitions a dataset """
+
+        if (MultiPart.dataset_id_cache == id(X)):
+            G = MultiPart.graph_cache
+        else:
+            # Build KD-Tree for efficient nearest-neighbors query
+            kdt = KDTree(X, leaf_size=self.leaf_size, metric=self.metric)
+            distances, indices = kdt.query(X, k=self.nearest_neighbors,
+                                           return_distance=True)
+            distances = MinMaxScaler(feature_range=(1, 1000)).fit_transform(
+                distances)
+
+            # Build graph for k-way paprtitioning
+            G = nx.Graph()
+            G.add_nodes_from(xrange(len(X)))
+
+            # Add distances of nearest neighbors as weighted edges
+            # The add_edge gets the tuple (index_from, index_to, distance)
+            for i, x in enumerate(zip(distances, indices)):
+                for j, dist in enumerate(x[0]):
+                    G.add_edge(i, x[1][j], weight=int(dist))
+            G.graph['edge_weight_attr'] = 'weight'
+
+            # Cache the graph
+            MultiPart.dataset_id_cache = id(X)
+            MultiPart.graph_cache = G
+
+        # Parition the graph
+        print('Partitioning...')
+        (edgecuts, parts) = metis.part_graph(G, self.n_clusters, objtype='cut')
+        return parts
 
 
 class KMeansBal:
