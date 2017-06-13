@@ -152,8 +152,6 @@ class KMeansBal:
 
     def _balance_clusters(self, clusters, num_clusters):
         labels, counts = np.unique(clusters, return_counts=True)
-        total_samples = counts.sum()
-        ideal_cluster_size = total_samples / num_clusters
         new_clusters_map = [[] for _ in xrange(num_clusters)]
         new_clusters_sizes = [0 for _ in xrange(num_clusters)]
 
@@ -163,18 +161,8 @@ class KMeansBal:
             cls_size = counts[cls_ind]
             cls_label = labels[cls_ind]
 
-            # Go over every output cluster, ordered from biggest to smallest
-            # and look for the first one we can add current "original cluster"
-            # without breaking ideal cluster size constraint
-            new_cluster = -1
-            for i in np.argsort(new_clusters_sizes)[::-1][:num_clusters]:
-                if (new_clusters_sizes[i] + cls_size <= ideal_cluster_size):
-                    new_cluster = i
-                    break
-
-            # If no such output cluster found, just add it to the smallest
-            if (new_cluster == -1):
-                new_cluster = np.argmin(new_clusters_sizes)
+            # Add to smallest output cluster
+            new_cluster = np.argmin(new_clusters_sizes)
 
             # Update output clusters map
             new_clusters_sizes[new_cluster] += cls_size
