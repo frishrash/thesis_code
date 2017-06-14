@@ -96,3 +96,5 @@ ENV/
 
 # Graphs
 *.png
+
+*.tgz
