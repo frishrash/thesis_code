@@ -80,11 +80,12 @@ class MultiPart:
     graph_cache = None
 
     def __init__(self, n_clusters=8, nearest_neighbors=100, leaf_size=50,
-                 metric='euclidean'):
+                 metric='euclidean', seed=None):
         self.n_clusters = n_clusters
         self.nearest_neighbors = nearest_neighbors
         self.leaf_size = leaf_size
         self.metric = metric
+        self.seed = seed
 
     def fit_predict(self, X, y=None):
         """ Partitions a dataset """
@@ -115,8 +116,12 @@ class MultiPart:
             MultiPart.graph_cache = G
 
         # Parition the graph
-        print('Partitioning...')
-        (edgecuts, parts) = metis.part_graph(G, self.n_clusters, objtype='cut')
+        if (self.seed is None):
+            (edgecuts, parts) = metis.part_graph(G, self.n_clusters,
+                                                 objtype='cut')
+        else:
+            (edgecuts, parts) = metis.part_graph(G, self.n_clusters,
+                                                 objtype='cut', seed=self.seed)
         return parts
 
 

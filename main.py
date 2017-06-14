@@ -30,7 +30,8 @@ from eval import EvalClassifier, EV_TIME_TRN, EV_TIME_TST
 from eval import EV_FSCORE, EV_PRE, EV_REC, EV_AUC, EV_CM
 from classifier import ClfFactory
 from clustering_model import is_feasible
-from splitters import RoundRobin, RandomRoundRobin, NoSplit, KMeansBal
+from splitters import RoundRobin, RandomRoundRobin, NoSplit
+from splitters import KMeansBal, MultiPart
 from reports import feasible_models, plot_classifier, plot_scalability
 from reports import plot_max_ratio, plot_roc, plot_class_distribution
 from reports import plot_classifier_info
@@ -106,6 +107,7 @@ def create_clustering_models():
                     models.append(CM(nsl, f, d).gen_model(KMeansBal,
                                                           random_state=0,
                                                           clusters_factor=5))
+                    models.append(CM(nsl, f, d).gen_model(MultiPart, seed=0))
                     models.append(CM(nsl, f, d).gen_model(Birch))
 
     for model in models:
@@ -274,5 +276,5 @@ def feasible_models_output():
 
 # create_clustering_models()
 # clustering_feasibility_report()
-eval_classifiers()
-# feasible_models_output()
+# eval_classifiers()
+feasible_models_output()
