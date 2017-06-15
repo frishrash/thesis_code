@@ -97,7 +97,7 @@ class MultiPart:
             kdt = KDTree(X, leaf_size=self.leaf_size, metric=self.metric)
             distances, indices = kdt.query(X, k=self.nearest_neighbors,
                                            return_distance=True)
-            distances = MinMaxScaler(feature_range=(1, 1000)).fit_transform(
+            distances = MinMaxScaler(feature_range=(0, 1000)).fit_transform(
                 distances)
 
             # Build graph for k-way paprtitioning
@@ -108,7 +108,10 @@ class MultiPart:
             # The add_edge gets the tuple (index_from, index_to, distance)
             for i, x in enumerate(zip(distances, indices)):
                 for j, dist in enumerate(x[0]):
-                    G.add_edge(i, x[1][j], weight=int(dist))
+                    # We insert opposite of distance since metis can only
+                    # *minimze* edge-cut and we want the cut to be between
+                    # least similar records (which have biggest distance)
+                    G.add_edge(i, x[1][j], weight=int(1000-dist))
             G.graph['edge_weight_attr'] = 'weight'
 
             # Cache the graph
