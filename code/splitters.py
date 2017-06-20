@@ -6,12 +6,13 @@ Created on Sat May 20 14:16:15 2017
 """
 
 from random import randint
+import pandas as pd
 import metis
 import networkx as nx
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KDTree
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from dataset import split_ds
 
 
@@ -56,6 +57,48 @@ class ClusterWrapper:
 
         # Return actual clusters as list of Pandas DataFrames
         return split_ds(clustering_result, ds)
+
+
+class WKMeans:
+    def __init__(self, n_clusters=8, init='k-means++', n_init=10,
+                 max_iter=300, tol=1e-4, precompute_distances='auto',
+                 verbose=0, random_state=None, copy_x=True, n_jobs=1,
+                 algorithm='auto'):
+        self.n_clusters = n_clusters
+        self.km = KMeans(n_clusters=n_clusters, init=init, n_init=n_init,
+                         max_iter=max_iter, tol=tol,
+                         precompute_distances=precompute_distances,
+                         verbose=verbose, random_state=random_state,
+                         copy_x=copy_x, n_jobs=n_jobs, algorithm=algorithm)
+
+    @staticmethod
+    def _features_imbalance(ds):
+        scores = []
+        for col in ds.columns:
+            try:
+                result = np.std(ds[col]) / np.mean(ds[col])
+                scores.append(result)
+            except Exception:
+                scores.append(0)
+        return np.nan_to_num(scores)
+
+    def fit_predict(self, X, y=None):
+        # Scale data to unit variance
+        data = pd.DataFrame(StandardScaler().fit_transform(X),
+                            columns=X.columns)
+
+        # Calculate features weights according to their imbalance
+        features_weights = WKMeans._features_imbalance(X)
+
+        # Apply features weights
+        for i, col in enumerate(X.columns):
+            if features_weights[i] != 0:
+                data[col] = data[col] / features_weights[i]
+        else:
+            data[col] = 0
+
+        # Run K-means
+        return self.km.fit_predict(data)
 
 
 class MultiPart:
