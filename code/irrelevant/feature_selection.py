@@ -11,10 +11,15 @@ from sklearn.cluster import KMeans
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import csv
-
+from scipy.stats import chisquare
 import dataset as ds
 import pandas as pd
 from dataset import NSL
+
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0,parentdir)
 
 
 def check_stability(ds, kfold=5):
@@ -78,8 +83,57 @@ def random_tests(n_iter=20):
         minmax_ratio = float(np.max(score)) / np.min(score)
         csvwriter.writerow([dataset, clusters, frac, result_str, minmax_ratio])
         print score
-    csv_file.close()    
-    
+    csv_file.close()
+
+
+def balance_prescale(ds, n_clusters=5):
+    for col in ds.columns:
+        col_std = ds[col].std()
+        # if col_std != 0:
+        #    ds[col] = ds[col].astype(float) / (ds[col].std())
+        try:
+            res = pd.cut(ds[col], n_clusters)
+            labels, counts = np.unique(res, return_counts=True)
+            counts = np.concatenate((counts, [0] * (n_clusters - len(counts))))
+            statistic, pvalue = chisquare(counts)
+            print('%f, %f, %f' % (pvalue, statistic, col_std / ds[col].mean()))
+            if pvalue < 0.05:  # We reject the hypothesis that we are uniform
+                ds[col] = ds[col] / statistic**2  # Scale down
+        except Exception, e:
+            print(str(e))
+            pass
+
+def features_score(ds, n_clusters):
+    ds_master = pd.DataFrame(StandardScaler().fit_transform(ds),
+                          columns=ds.columns)
+    km = KMeans(n_clusters=n_clusters)
+    weights = {x:float(1) for x in ds.columns}
+
+    is_done = False
+    i = 1
+    while (not is_done):
+        km_result = km.fit_predict(ds_master)
+        labels, counts = np.unique(km_result, return_counts=True)
+        current_ratio = float(counts.max()) / counts.min()
+        print('Starting iteration %d, current ratio: %f' % (i, current_ratio))
+        print(str(weights))
+        is_done = True
+        for col in ds.columns:
+            tmp_ds = ds_master.copy()
+            tmp_ds[col] = 0
+            km_result = km.fit_predict(tmp_ds)
+            labels, counts = np.unique(km_result, return_counts=True)
+            minmax_ratio = float(counts.max()) / counts.min()
+            if minmax_ratio < current_ratio:
+                weights[col] = weights[col] / 2
+                ds_master[col] = ds_master[col] / 2
+                is_done = False
+            elif minmax_ratio > current_ratio:
+                weights[col] = weights[col] * 2
+                ds_master[col] = ds_master[col] * 2
+                is_done = False
+        i = i + 1
+
 def features_imbalance(ds, r=range(3, 10), reverse=False):
     scores = []
     for col in ds.columns:
