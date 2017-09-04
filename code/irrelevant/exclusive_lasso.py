@@ -49,8 +49,9 @@ def exclusive_lasso(X, n_clusters, gamma=0.5):
             results = []
             for j in xrange(n_clusters):
                 F[i][j] = 1
-                res = np.linalg.norm(X-H.dot(F.T)) + \
-                    gamma*F.T.dot(np.ones([n_samples, n_samples])).dot(F).trace()
+                res = np.power(np.linalg.norm(X-H.dot(F.T)), 2) + \
+                    gamma * F.T.dot(np.ones([n_samples, n_samples])
+                                    ).dot(F).trace()
                 results.append(res)
                 F[i][j] = 0
             new_ind = np.argmin(results)
@@ -77,7 +78,7 @@ X = StandardScaler().fit_transform(X)
 
 km = KMeans(n_clusters=n_clusters)
 y_pred = km.fit_predict(X)
-y_pred = exclusive_lasso(X.T, n_clusters, gamma=0.009)
+y_pred = exclusive_lasso(np.array(X.T), n_clusters, gamma=0.1)
 print(np.unique(y_pred, return_counts=True))
 
 colors = np.array(list(islice(cycle(['#377eb8', '#ff7f00', '#4daf4a',
