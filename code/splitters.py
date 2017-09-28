@@ -11,6 +11,7 @@ import metis
 import networkx as nx
 import numpy as np
 from sklearn.cluster import KMeans
+from sklearn.utils import check_random_state
 from sklearn.neighbors import KDTree
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from dataset import split_ds
@@ -57,6 +58,176 @@ class ClusterWrapper:
 
         # Return actual clusters as list of Pandas DataFrames
         return split_ds(clustering_result, ds)
+
+
+class EXLasso:
+    """Balanced K-means using an exclusive LASSO regulator [1]_.
+
+    Parameters
+    ----------
+    X : ndarray, shape (n_samples, n_features)
+        Input data.
+    n_clusters : int
+        Number of clusters.
+    gamma: float, optional
+        Controls the regulator, the bigger the more balanced clustering but
+        less seperation between clusters. Default: 0.1.
+    init: {'kmeans', 'random'}, optional
+        How to initialize the matrix F. Default is K-means.
+
+    Returns
+    -------
+    out : ndarray, shape (n_samples,)
+        Cluster's assignments
+
+    Notes
+    -----
+    Objective function:
+
+    .. math:: \min_{F \in Ind} ||X-HF^T||^2_F + \gamma Tr(F^T11^TF)
+
+    References
+    ----------
+    .. [1] Chang, Xiaojun, et al., "Balanced k-means and min-cut clustering."
+        arXiv preprint arXiv:1411.6235, 2014.
+    """
+
+    def __init__(self, n_clusters=8, gamma=0.1, init='kmeans', max_iter=100,
+                 random_state=None):
+        self.n_clusters = n_clusters
+        self.gamma = gamma
+        self.init = init
+        self.max_iter = max_iter
+        self.random_state = random_state
+
+    def fit_predict(self, X, y=None):
+        """ Partitions a dataset """
+        if X.__class__ == pd.core.frame.DataFrame:
+            X = X.as_matrix()
+        X = X.T
+        n_dims, n_samples = X.shape
+
+        # F is indicaotr matrix with dimensions (n_samples, n_clusters)
+        # Each row represents a sample. The column with 1 indicates the cluster
+        # it is assigned to. Rest of columns must be 0.
+
+        # Initialize F
+        F = np.zeros((n_samples, self.n_clusters), dtype=np.int8)
+        random_state = check_random_state(self.random_state)
+        if (self.init == 'random'):
+            for i in xrange(n_samples):
+                F[i, random_state.randint(0, self.n_clusters - 1)] = 1
+        else:
+            km = KMeans(n_clusters=self.n_clusters, max_iter=1,
+                        init='k-means++', random_state=self.random_state)
+            pred = km.fit_predict(X.T)
+            for i in xrange(n_samples):
+                F[i][pred[i]] = 1
+
+        I = np.eye(self.n_clusters)  # Simple identity matrix to be used later
+        samples = np.ones(n_samples, dtype=np.bool)  # Sample ids for iteration
+        X_dup = np.tile(X.T, self.n_clusters)  # X clone to be used later
+
+        conv = False
+        iteration = 0
+        while iteration < self.max_iter and not conv:
+            conv = True  # Assume convergence, unless F changes
+            H = X.dot(np.linalg.pinv(F.T))  # H = XF(F^TF)^-1
+            # We should fixate H and update F row by row, on each row we should
+            # assign the column that minimizes the objective function.
+            # Notice that:
+            # ||X-HF^T||^2_F equals sum of squared elements of matrix X-HF^T.
+            # Tr(F^T11^TF) equals sum of squared clusters' sizes.
+
+            # We first calculate sum of squared elements of matrix X-HF^T of
+            # every column, before F changes. We will use this later.
+            base_sum = ((X - H.dot(F.T))**2).sum(axis=0)  # Sum per column
+            total_base_sum = base_sum.sum()  # Total sum
+
+            # For trace calculation, we need sum of squared clusters' sizes,
+            # which is the sum of F's columns, squared, and summarized.
+            # We save the repeated summary over F's columns with a dedicated
+            # array F_counts that will maintain this informaiton.
+            F_counts = F.sum(axis=0)
+
+            # Get all indicator columns
+            indicators = F.nonzero()[1]
+
+            # Calculate F
+            # For each row in F
+            for i in samples.nonzero()[0]:
+                # Get the indicator (non-zero column) of current (i-th) row
+                curr_ind = indicators[i]
+
+                # Update F's columns sums, as if current row is all zeros
+                F_counts[curr_ind] = F_counts[curr_ind] - 1
+
+                # To save looping over F's columns, we calculate the trace
+                # for all possible indicator columns at once using a matrix.
+
+                # Initialize F_mat, all rows are duplicates of F_counts which
+                # is the sum of F's columns when current row in F is all zeros.
+                # Performance of repeat is better than tile and broadcast_to
+                F_mat = np.repeat(F_counts, self.n_clusters).reshape(
+                    self.n_clusters, self.n_clusters).T
+
+                # On every row of F_mat, add one to a different column.
+                F_mat = F_mat + I
+
+                # Now the j-th row of F_mat represent the sum of F's columns
+                # when current row in F has the j-th column set as indicator.
+                # We square every element and sum the rows. In the end, traces
+                # contains <n_clusters> values, each is the trace value for a
+                # different indicator column.
+                traces = (F_mat**2).sum(axis=1)
+
+                # We want to calculate sum of squared elements of X-HF^T for
+                # every possible column indicator. Since the sum was already
+                # calculated per column in the beginning of the iteration
+                # (base_sum), we can only calculate the diffs.
+
+                # If F's i-th row and j-th column is one, then (HF^T)'s i-th
+                # column is a copy of H's j-th column.
+                # Hence, the value of sum of squared elements of X-HF^T equals
+                # total_base_sum (result with F from itearation start) minus
+                # the value from iteration start originating from current row
+                # (base_sum[i]) plus sum of squared elements of (i-th column of
+                # X minus j-th column of H), j being the indicator column.
+
+                # To save looping over F's columns, we create new matrix with
+                # all columns duplicates of the i-th column of X and substract
+                # H. The j-th column of the result is how the i-th column of
+                # X-HF^T would be as if j is the indicator column.
+                # Then we square all elements in result and summarize columns.
+
+                # At this point we have two arrays of size <n_clusters>: traces
+                # and the last calculated sum. We multiply traces with the
+                # scalar gamma and add. Final result is all possible values of
+                # ||X-HF^T||^2_F + gamma*Tr(F^T11^TF), given current row of F.
+                res = X_dup[i].reshape(self.n_clusters, n_dims)
+                res = total_base_sum - base_sum[i] + ((res - H.T)**2).sum(
+                    axis=1)
+                res2 = res + self.gamma * traces
+
+                tmp = res.argsort()
+                if ((res[tmp[2]] - res[tmp[1]]) /
+                        (res[tmp[1]] - res[tmp[0]])) > 2:
+                    samples[i] = 0
+
+                # Index of minimal value is set as the indicator column
+                new_ind = res2.argmin()
+                F_counts[new_ind] = F_counts[new_ind] + 1  # Update column sums
+
+                # If indicator column was changed, set convergence to False and
+                # update F.
+                if (curr_ind != new_ind):
+                    conv = False
+                    F[i, curr_ind] = 0
+                    F[i, new_ind] = 1
+
+            iteration = iteration + 1
+            print iteration
+        return F.nonzero()[1]
 
 
 class WKMeans:
@@ -106,17 +277,22 @@ class MultiPart:
 
     This class produces a weighted graph. Each vertex represents a data point.
     Its edges represent distances to its N nearest neighbors. The graph is then
-    partitioned using multilevel k-way partition scheme, minimizing edges' sum.
+    partitioned using multilevel k-way partition scheme [1]_ based on `METIS`_,
+    minimizing edges' sum.
 
     Prerequisite packages:
         metis
         networkx
 
-    More info on METIS: http://glaros.dtc.umn.edu/gkhome/metis/metis/overview
+    .. _METIS:
+        http://glaros.dtc.umn.edu/gkhome/metis/metis/overview
 
-    Bibtex: G. Karypis and V. Kumar. Multilevel k-way partitioning scheme for
-    irregular graphs. Journal of Parallel and Distributed Computing,
-    48(1):96–129, 1998.
+    References
+    ----------
+    .. [1] G. Karypis and V. Kumar. Multilevel k-way partitioning scheme for
+        irregular graphs. Journal of Parallel and Distributed Computing,
+        48(1):96–129, 1998.
+
     """
 
     dataset_id_cache = None
