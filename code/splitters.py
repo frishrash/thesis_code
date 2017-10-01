@@ -6,6 +6,7 @@ Created on Sat May 20 14:16:15 2017
 """
 
 from random import randint
+import time
 import pandas as pd
 import metis
 import networkx as nx
@@ -62,6 +63,9 @@ class ClusterWrapper:
 
 class EXLasso:
     """Balanced K-means using an exclusive LASSO regulator [1]_.
+    In addition to the convergence criteria described in the paper, convergence
+    can be specified in terms of tolerance with regards to inertia (clusters
+    centers shift).
 
     Parameters
     ----------
@@ -69,11 +73,19 @@ class EXLasso:
         Input data.
     n_clusters : int
         Number of clusters.
-    gamma: float, optional
-        Controls the regulator, the bigger the more balanced clustering but
-        less seperation between clusters. Default: 0.1.
-    init: {'kmeans', 'random'}, optional
+    gamma: float, deafult: 0.1
+        Controls the regulator, the greater the more balanced clustering but
+        less seperation between clusters.
+    init: {'kmeans', 'random'}, default: 'kmeans'
         How to initialize the matrix F. Default is K-means.
+    max_iter: int, default: 100
+        Maximum number of iterations of this algorithm for a single run.
+    random_state: integer or numpy.RandomState, optional
+        The generator used to initialize the centers. If an integer is given,
+        it fixes the seed. Defaults to the global numpy random number
+        generator.
+    tol: float, default: 1e-4
+        Relative tolerance with regards to inertia to declare convergence
 
     Returns
     -------
@@ -93,12 +105,13 @@ class EXLasso:
     """
 
     def __init__(self, n_clusters=8, gamma=0.1, init='kmeans', max_iter=100,
-                 random_state=None):
+                 random_state=None, tol=1e-4):
         self.n_clusters = n_clusters
         self.gamma = gamma
         self.init = init
         self.max_iter = max_iter
         self.random_state = random_state
+        self.tol = tol
 
     def fit_predict(self, X, y=None):
         """ Partitions a dataset """
@@ -130,9 +143,11 @@ class EXLasso:
 
         conv = False
         iteration = 0
+        H = X.dot(np.linalg.pinv(F.T))  # H = XF(F^TF)^-1
+
         while iteration < self.max_iter and not conv:
+            start = time.time()
             conv = True  # Assume convergence, unless F changes
-            H = X.dot(np.linalg.pinv(F.T))  # H = XF(F^TF)^-1
             # We should fixate H and update F row by row, on each row we should
             # assign the column that minimizes the objective function.
             # Notice that:
@@ -209,11 +224,6 @@ class EXLasso:
                     axis=1)
                 res2 = res + self.gamma * traces
 
-                tmp = res.argsort()
-                if ((res[tmp[2]] - res[tmp[1]]) /
-                        (res[tmp[1]] - res[tmp[0]])) > 2:
-                    samples[i] = 0
-
                 # Index of minimal value is set as the indicator column
                 new_ind = res2.argmin()
                 F_counts[new_ind] = F_counts[new_ind] + 1  # Update column sums
@@ -227,6 +237,18 @@ class EXLasso:
 
             iteration = iteration + 1
             print iteration
+            H_new = X.dot(np.linalg.pinv(F.T))  # H = XF(F^TF)^-1
+
+            # If centers movement is small, consider convergence
+            centers_shift = np.sqrt(np.sum((H - H_new) ** 2, axis=0))
+
+            centers_shift_total = np.sum(centers_shift)
+            print(centers_shift_total)
+            if centers_shift_total ** 2 < self.tol:
+                conv = True
+
+            H = H_new
+            print('Iteration %d, %f secs' % (iteration, (time.time() - start)))
         return F.nonzero()[1]
 
 
@@ -289,10 +311,9 @@ class MultiPart:
 
     References
     ----------
-    .. [1] G. Karypis and V. Kumar. Multilevel k-way partitioning scheme for
-        irregular graphs. Journal of Parallel and Distributed Computing,
+    .. [1] G. Karypis and V. Kumar, "Multilevel k-way partitioning scheme for
+        irregular graphs". Journal of Parallel and Distributed Computing,
         48(1):96–129, 1998.
-
     """
 
     dataset_id_cache = None
