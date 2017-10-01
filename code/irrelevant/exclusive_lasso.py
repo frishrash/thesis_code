@@ -15,6 +15,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn import cluster, datasets
 from sklearn.cluster import KMeans
+from sklearn.neighbors import KDTree
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from itertools import cycle, islice
 from random import randint
@@ -288,7 +289,7 @@ def exclusive_lasso5(X, n_clusters, gamma=0.5):
     return map(lambda x: x.index(1), F.tolist())
 
 
-def exclusive_lasso6(X, n_clusters, gamma=0.1):
+def exclusive_lasso6(X, n_clusters, gamma=0.1, init='kmeans', tol=1e-4):
     """Balanced K-means using an exclusive LASSO regulator [1]_.
 
     Parameters
@@ -300,15 +301,19 @@ def exclusive_lasso6(X, n_clusters, gamma=0.1):
     gamma: float, optional
         Controls the regulator, the bigger the more balanced clustering but
         less seperation between clusters. Default: 0.1.
+    init: {'kmeans', 'random'}, optional
+        How to initialize the matrix F. Default is K-means.
 
     Returns
     -------
     out : ndarray, shape (n_samples,)
-        Clusters assignments
+        Cluster's assignments
 
     Notes
     -----
-    .. math:: X(e^{j\omega } ) = x(n)e^{ - j\omega n}
+    Objective function:
+
+    .. math:: \min_{F \in Ind} ||X-HF^T||^2_F + \gamma Tr(F^T11^TF)
 
     References
     ----------
@@ -323,16 +328,28 @@ def exclusive_lasso6(X, n_clusters, gamma=0.1):
     # Each row indicates data point, the column with 1 indicates the cluster
     # it is assigned to. Rest of columns must be 0.
 
-    # Initialize F with random clusters assignment
+    # Initialize F
     F = np.zeros((n_samples, n_clusters), dtype=np.int8)
-    for i in xrange(n_samples):
-        F[i, randint(0, n_clusters-1)] = 1
+    if (init == 'random'):
+        for i in xrange(n_samples):
+            F[i, randint(0, n_clusters - 1)] = 1
+    else:
+        km = KMeans(n_clusters=n_clusters, max_iter=1, init='k-means++')
+        pred = km.fit_predict(X.T)
+        for i in xrange(n_samples):
+            F[i][pred[i]] = 1
+
+    I = np.eye(n_clusters)  # Simple identity matrix that will be used later
+    samples = np.ones(n_samples, dtype=np.bool)  # Sample ids for iteration
+    X_dup = np.tile(X.T, n_clusters)  # X clone that will be used later
 
     conv = False
     iteration = 0
+    
+    H = X.dot(np.linalg.pinv(F.T))  # H = XF(F^TF)^-1
     while iteration < MAX_ITERS and not conv:
+        start = time.time()
         conv = True  # Assume convergence, unless F changes during iteration
-        H = X.dot(sp.linalg.pinv(F.T))  # H = XF(F^TF)^-1
 
         # Now we should fixate H and update F row by row, on each row we should
         # assign the column that minimizes ||X-HF^T||^2_F + gamma*Tr(F^T11^TF).
@@ -340,12 +357,9 @@ def exclusive_lasso6(X, n_clusters, gamma=0.1):
         # ||X-HF^T||^2_F equals sum of squared elements of the matrix X-HF^T.
         # Tr(F^T11^TF) equals sum of squared clusters' sizes.
 
-        # Now X and H don't change, only F. If F's i-th row and j-th column is
-        # one, then (HF^T)'s i-th column is a copy of H's j-th column.
-
         # We first calculate sum of squared elements of matrix X-HF^T of
-        # every column, before F changed.
-        base_sum = ((X-H.dot(F.T))**2).sum(axis=0)  # Sum per column
+        # every column, before F changes. We will use this later.
+        base_sum = ((X - H.dot(F.T))**2).sum(axis=0)  # Sum per column
         total_base_sum = base_sum.sum()  # Total sum
 
         # For trace calculation, we need sum of squared clusters' sizes, which
@@ -353,11 +367,14 @@ def exclusive_lasso6(X, n_clusters, gamma=0.1):
         # We save the repeated summary over F's columns with a dedicated array.
         F_counts = F.sum(axis=0)
 
+        # Get all indicator columns
+        indicators = F.nonzero()[1]
+
         # Calculate F
         # For each row in F
-        for i in xrange(n_samples):
+        for i in samples.nonzero()[0]:
             # Get the indicator (non-zero column) of current (i-th) row
-            curr_ind = F[i].nonzero()[0][0]
+            curr_ind = indicators[i]
 
             # Update F's columns sums, as if current row is all zeros
             F_counts[curr_ind] = F_counts[curr_ind] - 1
@@ -367,10 +384,12 @@ def exclusive_lasso6(X, n_clusters, gamma=0.1):
 
             # Initialize F_mat, all rows are duplicates of F_counts which is
             # the sum of F's columns when current row in F is all zeros.
+            # Performance of repeat is better than tile and broadcast_to
             F_mat = np.repeat(F_counts, n_clusters).reshape(n_clusters,
                                                             n_clusters).T
+
             # On every row of F_mat, add one to a different column.
-            F_mat = F_mat + np.eye(n_clusters)
+            F_mat = F_mat + I
 
             # Now the j-th row of F_mat represent the sum of F's columns when
             # current row in F has the j-th column set as indicator.
@@ -379,22 +398,68 @@ def exclusive_lasso6(X, n_clusters, gamma=0.1):
             # different indicator column.
             traces = (F_mat**2).sum(axis=1)
 
-            res = np.repeat(X[:, i], n_clusters).reshape(n_dims, n_clusters)
-            res = np.power(res - H, 2).sum(axis=0) - base_sum[i] + total_base_sum + gamma * traces
-            new_ind = res.argmin()
-            F_counts[new_ind] = F_counts[new_ind] + 1
+            # We want to calculate sum of squared elements of X-HF^T for every
+            # possible column indicator. Since the sum was already calculated
+            # per column in the beginning of the iteration (base_sum), we can
+            # only calculate the diffs.
 
+            # If F's i-th row and j-th column is one, then (HF^T)'s i-th column
+            # is a copy of H's j-th column.
+            # Hence, the value of sum of squared elements of X-HF^T equals
+            # total_base_sum (result with F from itearation beginning) minus
+            # the value from iteration beginning originating from current row
+            # (base_sum[i]) plus sum of squared elements of (i-th column of X
+            # minus j-th column of H), j being the indicator column.
+
+            # To save looping over F's columns, we create new matrix with
+            # all columns duplicates of the i-th column of X and substract H.
+            # The j-th column of the result is how the i-th column of X-HF^T
+            # would look like if j is the indicator column.
+            # Then we square all elements in result and summarize the columns.
+
+            # At this point we have two arrays of size <n_clusters>: traces
+            # and the last calculated sum. We multiply traces with the scalar
+            # gamma and add. Final result is all possible values of
+            # ||X-HF^T||^2_F + gamma*Tr(F^T11^TF), given current row of F.
+            res = X_dup[i].reshape(n_clusters, n_dims)
+            res = total_base_sum - base_sum[i] + ((res - H.T)**2).sum(axis=1)
+            res2 = res + gamma * traces
+
+            #print res
+            #tmp = res.argsort()
+            #if ((res[tmp[2]] - res[tmp[1]]) / (res[tmp[1]] - res[tmp[0]])) > 2:
+            #    samples[i] = 0
+            #if(float(res[tmp[1]] - res[tmp[0]]) / res[tmp[1]] > 0.1):
+            #if (np.var(res)) > 10:
+            #    samples[i] = 0
+
+            # Index of minimal value is set as the indicator column
+            new_ind = res2.argmin()
+            F_counts[new_ind] = F_counts[new_ind] + 1  # Update columns sums
+
+            # If indicator column was changed, set convergence to False and
+            # update F.
             if (curr_ind != new_ind):
                 conv = False
                 F[i, curr_ind] = 0
                 F[i, new_ind] = 1
+
+        H2 = X.dot(np.linalg.pinv(F.T))  # H = XF(F^TF)^-1
+        center_shift = np.sqrt(np.sum((H - H2) ** 2, axis=0))
+        center_shift_total = np.sum(center_shift)
+        print(center_shift_total)
+        if center_shift_total ** 2 < tol:
+            print("center shift %e within tolerance %e" % (center_shift_total, tol))
+            conv = True
+        H = H2
+        print('Iteration %d, %f secs' % (iteration, (time.time() - start)))
         iteration = iteration + 1
-        print iteration
+        #print(len(samples.nonzero()[0]))
     return F.nonzero()[1]
 
 np.random.seed(0)
-n_samples = 500
-n_clusters = 3
+n_samples = 10000
+n_clusters = 4
 
 blobs = datasets.make_blobs(n_samples=n_samples, random_state=8)
 varied = datasets.make_blobs(n_samples=n_samples,
@@ -408,7 +473,12 @@ X = StandardScaler().fit_transform(X)
 
 km = KMeans(n_clusters=n_clusters)
 y_pred = km.fit_predict(X)
-y_pred = exclusive_lasso6(np.array(X.T), n_clusters, gamma=0.05)
+
+F = np.zeros((n_samples, n_clusters), dtype=np.int8)
+for i in xrange(n_samples):
+    F[i][y_pred[i]] = 1
+
+y_pred = exclusive_lasso6(np.array(X.T), n_clusters, gamma=0.1, tol=1e-3, init='random')
 #y_pred = nmf_solve(np.array(X), n_clusters, gamma=0.1)
 print(np.unique(y_pred, return_counts=True))
 

@@ -1,0 +1,7 @@
+http://scikit-learn.org/stable/developers/advanced_installation.html#building-on-windows
+
+cmd /E:ON /V:ON /K
+SET DISTUTILS_USE_SDK=1
+SET MSSdk=1
+"C:\Program Files\Microsoft SDKs\Windows\v7.1\Setup\WindowsSdkVer.exe" -q -version:v7.0
+"c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.Cmd" /x64 /release
