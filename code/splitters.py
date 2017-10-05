@@ -253,6 +253,16 @@ class EXLasso:
 
 
 class WKMeans:
+    """Weighted K-means.
+    
+    Features are first standardized to zero mean and unit variance. Then every
+    feature gets a weight proportional to how evenly its values are spread
+    across the range.
+    
+    The weight of every feature is :math:`(\mu(D) / \sigma(D))^{-4}` where
+    :math:`D` is the differences between consecutive values.
+    """
+
     def __init__(self, n_clusters=8, init='k-means++', n_init=10,
                  max_iter=300, tol=1e-4, precompute_distances='auto',
                  verbose=0, random_state=None, copy_x=True, n_jobs=1,
@@ -269,8 +279,9 @@ class WKMeans:
         scores = []
         for col in ds.columns:
             try:
-                result = np.std(ds[col]) / np.mean(ds[col])
-                scores.append(result)
+                diffs = np.ediff1d(ds[col].sort_values())
+                result = np.std(diffs) / np.mean(diffs)
+                scores.append(result**2)
             except Exception:
                 scores.append(0)
         return np.nan_to_num(scores)
