@@ -31,7 +31,7 @@ from eval import EV_FSCORE, EV_PRE, EV_REC, EV_AUC, EV_CM
 from classifier import ClfFactory
 from clustering_model import is_feasible
 from splitters import RoundRobin, RandomRoundRobin, NoSplit
-from splitters import KMeansBal, MultiPart
+from splitters import KMeansBal, MultiPart, WKMeans, EXLasso
 from reports import feasible_models, plot_classifier, plot_scalability
 from reports import plot_max_ratio, plot_roc, plot_class_distribution
 from reports import plot_classifier_info
@@ -72,7 +72,8 @@ def create_clustering_models():
                     NSL.FEATURES_TCP,
                     np.append(NSL.FEATURES_2SECS_HOST,
                               NSL.FEATURES_2SECS_SERVICE),
-                    NSL.FEATURES_2SECS
+                    NSL.FEATURES_2SECS,
+                    NSL.FEATURES
                     ]
     nsl_descs = ['2 secs same dest host',
                  '2 secs same service',
@@ -80,19 +81,30 @@ def create_clustering_models():
                  'expert features',
                  'single TCP features',
                  'all 2 secs',
-                 'all history based features'
+                 'all history based features',
+                 'all features'
                  ]
     for dataset in (ds.NSL_TRAIN20, ds.NSL_TEST):
+        # Scale and encoding agnostic splitters
+        nsl = NSL(dataset, ds.ENC_NUMERIC, ds.SCL_STD)
+        models.append(CM(nsl).gen_model(RoundRobin))
+        models.append(CM(nsl).gen_model(RandomRoundRobin))
+        models.append(CM(nsl, min_k=1, max_k=1).gen_model(NoSplit))
+
         for encoding in (ds.ENC_NUMERIC, ds.ENC_HOT):
-            for scaling in (ds.SCL_NONE, ds.SCL_MINMAX):
+            nsl = NSL(dataset, encoding, ds.SCL_STD)
+            models.append(CM(nsl).gen_model(MultiPart, seed=0))
+            models.append(CM(nsl).gen_model(WKMeans, random_state=0))
+            models.append(CM(nsl).gen_model(EXLasso, random_state=0, gamma=0.1,
+                          tol=1e-2, verbose=True))
+
+        for encoding in (ds.ENC_NUMERIC, ds.ENC_HOT):
+            for scaling in (ds.SCL_NONE, ds.SCL_MINMAX, ds.SCL_STD):
                 nsl = NSL(dataset, encoding, scaling)
 
                 # The following splitters are features agnostic. However, they
                 # are added for every encoding and scaling since it matters for
                 # the ML classifiers later on in the process
-                models.append(CM(nsl).gen_model(RoundRobin))
-                models.append(CM(nsl).gen_model(RandomRoundRobin))
-                models.append(CM(nsl, min_k=1, max_k=1).gen_model(NoSplit))
 
                 # Add all clustering models
                 for f, d in zip(nsl_features, nsl_descs):
@@ -100,14 +112,7 @@ def create_clustering_models():
                                                           random_state=0))
                     models.append(CM(nsl, f, d).gen_model(KMeansBal,
                                                           random_state=0,
-                                                          clusters_factor=3))
-                    models.append(CM(nsl, f, d).gen_model(KMeansBal,
-                                                          random_state=0,
-                                                          clusters_factor=4))
-                    models.append(CM(nsl, f, d).gen_model(KMeansBal,
-                                                          random_state=0,
                                                           clusters_factor=5))
-                    models.append(CM(nsl, f, d).gen_model(MultiPart, seed=0))
                     models.append(CM(nsl, f, d).gen_model(Birch))
 
     for model in models:
@@ -274,7 +279,7 @@ def feasible_models_output():
                          file_name=os.path.join(GRAPHS_DIR,
                                                 'baseline-dt-comparison.png'))
 
-# create_clustering_models()
+create_clustering_models()
 # clustering_feasibility_report()
 # eval_classifiers()
-feasible_models_output()
+# feasible_models_output()

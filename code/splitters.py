@@ -76,7 +76,7 @@ class EXLasso:
     gamma: float, deafult: 0.1
         Controls the regulator, the greater the more balanced clustering but
         less seperation between clusters.
-    init: {'kmeans', 'random'}, default: 'kmeans'
+    init: {'kmeans', 'random'}, default: 'random'
         How to initialize the matrix F. Default is K-means.
     max_iter: int, default: 100
         Maximum number of iterations of this algorithm for a single run.
@@ -104,14 +104,15 @@ class EXLasso:
         arXiv preprint arXiv:1411.6235, 2014.
     """
 
-    def __init__(self, n_clusters=8, gamma=0.1, init='kmeans', max_iter=100,
-                 random_state=None, tol=1e-4):
+    def __init__(self, n_clusters=8, gamma=0.1, init='random', max_iter=100,
+                 random_state=None, tol=1e-4, verbose=False):
         self.n_clusters = n_clusters
         self.gamma = gamma
         self.init = init
         self.max_iter = max_iter
         self.random_state = random_state
         self.tol = tol
+        self.verbose = verbose
 
     def fit_predict(self, X, y=None):
         """ Partitions a dataset """
@@ -236,29 +237,31 @@ class EXLasso:
                     F[i, new_ind] = 1
 
             iteration = iteration + 1
-            print iteration
+            # print iteration
             H_new = X.dot(np.linalg.pinv(F.T))  # H = XF(F^TF)^-1
 
             # If centers movement is small, consider convergence
             centers_shift = np.sqrt(np.sum((H - H_new) ** 2, axis=0))
 
             centers_shift_total = np.sum(centers_shift)
-            print(centers_shift_total)
+            # print(centers_shift_total)
             if centers_shift_total ** 2 < self.tol:
                 conv = True
 
             H = H_new
-            print('Iteration %d, %f secs' % (iteration, (time.time() - start)))
+            if self.verbose:
+                print('Iteration %d, %f secs' % (iteration,
+                                                 (time.time() - start)))
         return F.nonzero()[1]
 
 
 class WKMeans:
     """Weighted K-means.
-    
+
     Features are first standardized to zero mean and unit variance. Then every
     feature gets a weight proportional to how evenly its values are spread
     across the range.
-    
+
     The weight of every feature is :math:`(\mu(D) / \sigma(D))^{-4}` where
     :math:`D` is the differences between consecutive values.
     """
