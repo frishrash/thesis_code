@@ -85,12 +85,6 @@ def create_clustering_models():
                  'all features'
                  ]
     for dataset in (ds.NSL_TRAIN20, ds.NSL_TEST):
-        # Scale and encoding agnostic splitters
-        nsl = NSL(dataset, ds.ENC_NUMERIC, ds.SCL_STD)
-        models.append(CM(nsl).gen_model(RoundRobin))
-        models.append(CM(nsl).gen_model(RandomRoundRobin))
-        models.append(CM(nsl, min_k=1, max_k=1).gen_model(NoSplit))
-
         for encoding in (ds.ENC_NUMERIC, ds.ENC_HOT):
             nsl = NSL(dataset, encoding, ds.SCL_STD)
             models.append(CM(nsl).gen_model(MultiPart, seed=0))
@@ -105,6 +99,9 @@ def create_clustering_models():
                 # The following splitters are features agnostic. However, they
                 # are added for every encoding and scaling since it matters for
                 # the ML classifiers later on in the process
+                models.append(CM(nsl).gen_model(RoundRobin))
+                models.append(CM(nsl).gen_model(RandomRoundRobin))
+                models.append(CM(nsl, min_k=1, max_k=1).gen_model(NoSplit))
 
                 # Add all clustering models
                 for f, d in zip(nsl_features, nsl_descs):
