@@ -163,7 +163,13 @@ def feasibile_clustering_models(report_file=CLUSTERS_REPORT):
     known_files = set()
 
     for f in listdir(MODELS_DIR):
-        algo, features, dataset, encoding, scaling = splitext(f)[0].split('_')
+        try:
+            algo, features, dataset, encoding, scaling = splitext(f)[0].\
+                split('_')
+        except Exception:
+            print('Invalid file model file name %s, skipping' % f)
+            continue
+        print('Working on %s' % f)
         file_name = join(MODELS_DIR, f)
         if file_name in known_files:
             continue
