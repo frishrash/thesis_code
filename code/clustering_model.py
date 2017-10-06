@@ -9,14 +9,20 @@ import time
 import pickle
 import numpy as np
 from splitters import ClusterWrapper
-from settings import MAX_CLUSTERS_STD
+from settings import MAX_CLUSTERS_STD, MAX_CLUSTERS_RATIO
 
 
-def is_feasible(model_data, max_sigma=MAX_CLUSTERS_STD):
+def is_feasible(model_data, max_sigma=MAX_CLUSTERS_STD,
+                max_ratio=MAX_CLUSTERS_RATIO):
     max_std = np.max(map(lambda x: x['CLUSTERING_STD'], model_data))
+    max_ratio_ = np.max(map(lambda x: x['MINMAX_RATIO'], model_data))
 
     # Check maximal clustering sizes std. dev
     if max_std > max_sigma:
+        return False
+
+    # Check maximal minmax ratio
+    if max_ratio_ > MAX_CLUSTERS_RATIO:
         return False
 
     # Check that all clustering returned in requested size
