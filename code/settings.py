@@ -23,8 +23,8 @@ CLUSTERS_REPORT = os.path.join(REPORTS_DIR, 'clusters.csv')
 CLASSIFIERS_REPORT = os.path.join(REPORTS_DIR, 'classifiers.csv')
 FEASIBLES_REPORT = os.path.join(REPORTS_DIR, 'feasibles.csv')
 
-MAX_CLUSTERS_STD = 6000
-MAX_CLUSTERS_RATIO = 25
+MAX_CLUSTERS_STD = 5000
+MAX_CLUSTERS_RATIO = 15
 
 for directory in [THESIS_DIR, REPORTS_DIR, MODELS_DIR, GRAPHS_DIR, CLFS_DIR]:
     if not os.path.exists(directory):
