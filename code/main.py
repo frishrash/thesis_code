@@ -285,7 +285,7 @@ def eval_classifiers(report_file=CLASSIFIERS_REPORT, classifiers=None,
                         data[i]['k'], ' - '.join(map(lambda x: str(x),
                                                  data[i]['SPLIT_SIZES']
                                                      )),
-                        classifier.name, classifier.info, ev.kfold,
+                        classifier.name, classifier.info, 5,
                         '%.2f' % res[EV_TIME_TRN],
                         '%.2f' % res[EV_TIME_TST],
                         '%.2f' % res[EV_FSCORE],
