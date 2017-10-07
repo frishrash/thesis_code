@@ -5,8 +5,7 @@ Created on Tue May 23 22:37:49 2017
 @author: gal
 """
 
-from os import listdir
-from os.path import join, splitext
+from os.path import join
 import matplotlib.pyplot as plt
 import matplotlib
 import seaborn as sns # At import it changes matplotlib settings, even unused
@@ -19,8 +18,7 @@ import pandas as pd
 
 
 from settings import CLASSIFIERS_REPORT, MODELS_DIR, CLFS_DIR
-from settings import MAX_CLUSTERS_STD, MAX_CLUSTERS_RATIO
-from clustering_model import is_feasible
+from settings import CLUSTERS_REPORT
 
 
 def select(df, h):
@@ -46,119 +44,38 @@ def data_add_column(ds, data, att):
     return pd.concat([ds, new_ds], axis=1)
 
 
-def feasible_models(sigma=MAX_CLUSTERS_STD):
-    """Produce dataset of feasible models
+def feasible_classifiers():
+    """Produce dataset of feasible classifiers
 
     Feasibility criteria:
-        Std. deviation of cluster sizes < predefined threshold (6000)
-        Requested number of clusters returned (not always the case with Birch)
-        All classifiers returned valid F-score for both training and testing
+        Clustering feasibilty criteria + each classifier has results for all
+        K's for all datasets.
     """
+
     clf_data = pd.read_csv(CLASSIFIERS_REPORT)
-    feasible_records = []
-
-    for f in listdir(MODELS_DIR):
-        algo, features, dataset, encoding, scaling = splitext(f)[0].split('_')
-        data = pickle.load(open(join(MODELS_DIR, f), 'rb'))
-
-        # Step 1 - filter feasible splitters that have classification result(s)
-        if is_feasible(data, sigma):
-            clf_rec = select(clf_data, {'Dataset': dataset,
-                                        'Algo': algo,
-                                        'Features': features,
-                                        'Encoding': encoding,
-                                        'Scaling': scaling})
-
-            # Only clusterings that have classification results
-            if len(clf_rec) > 0:
-                # Augment information
-                clf_rec = data_add_column(clf_rec, data, 'MINMAX_RATIO')
-                clf_rec = data_add_column(clf_rec, data, 'MAX_SPLIT_SIZE')
-                clf_rec = data_add_column(clf_rec, data, 'MIN_SPLIT_SIZE')
-                clf_rec = data_add_column(clf_rec, data, 'CLUSTERING_STD')
-                feasible_records.append(clf_rec)
-
-    # Merge everything gathered until now to a single DataFrame
-    final_records = pd.concat(feasible_records)
-
-    # Step 2 - select feasible clustering models
 
     # Group data by Algo, Features, Encoding, Scaling and count records
-    piv = pd.pivot_table(final_records, values=[],
-                         index=['Algo', 'Features', 'Encoding', 'Scaling'],
+    piv = pd.pivot_table(clf_data, values=[], index=['Algo', 'Features',
+                         'Encoding', 'Scaling', 'Classifier'],
                          aggfunc=lambda x: len(x))
     piv = piv.reset_index().rename(columns={0: 'Count'})
 
-    # Join with data
-    result = pd.merge(final_records, piv, how='inner',
-                      on=['Algo', 'Features', 'Encoding', 'Scaling'])
+    # Add the count column to original clf_data
+    result = pd.merge(clf_data, piv, how='inner', on=['Algo', 'Features',
+                      'Encoding', 'Scaling', 'Classifier'])
 
-    # Group data by Algo, Features, Encoding, Scaling and find maximal minmax
-    # ratio
-    piv = pd.pivot_table(result, values=['MINMAX_RATIO'],
-                         index=['Algo', 'Features', 'Encoding', 'Scaling'],
-                         aggfunc=np.max)
-    piv = piv.reset_index().rename(columns={'MINMAX_RATIO': 'MODEL_MAX_RATIO'})
+    # Read clusters report
+    clusters_data = pd.read_csv(CLUSTERS_REPORT).rename(columns={
+        'Algorithm': 'Algo', 'Max Ratio': 'MODEL_MAX_RATIO'})
 
-    # Join with data
-    result = pd.merge(result, piv, how='inner',
-                      on=['Algo', 'Features', 'Encoding', 'Scaling'])
+    # Add Max Std., Max Ratio, and Avg. Split Time to our data
+    result = pd.merge(result, clusters_data, how='inner', on=['Algo',
+                      'Features', 'Encoding', 'Scaling', 'Dataset'])
 
-    # Select clustering models for which all classifiers returned scores on
-    # both training and testing. There are 5 classifiers for scaling None and
-    # 4 classifiers for scaling min-max. Therefore we should select records
-    # with:
-    #   2 datasets x 7 k's x 5 classifiers = 70 records for min-max scaling.
-    #   2 datasets x 7 k's x 4 classifiers = 56 records for no scaling.
-    # For the baseline (NoSplit) similar calculation but with single k
-    # No split was 10,8. Now 16,14 for DT4-6
-    filt = (((result['Count'] == 70) & (result['Scaling'] == 'Min-max')) |
-            ((result['Count'] == 56) & (result['Scaling'] == 'None')) |
-            ((result['Count'] == 10) & (result['Scaling'] == 'Min-max') &
-             (result['Algo'] == 'NoSplit')) |
-            ((result['Count'] == 8) & (result['Scaling'] == 'None') &
-             (result['Algo'] == 'NoSplit'))) & \
-           (result['MODEL_MAX_RATIO'] < MAX_CLUSTERS_RATIO)
-
+    # Return only records that had all K's evaluated for both train and test
+    filt = ((result['Count'] == 14) |
+            ((result['Count'] == 2) & (result['Algo'] == 'NoSplit')))
     return result[filt]
-
-    # TODO: remove all of the below when unnecessary
-
-    # Aggregate data according to algorithm, features and count records
-    piv = pd.pivot_table(final_records, values=[], index=['Algo', 'Features'],
-                         aggfunc=lambda x: len(x))
-    piv = piv.reset_index().rename(columns={0: 'Count1'})
-
-    # Join with data
-    result = pd.merge(final_records, piv, how='inner', on=['Algo', 'Features'])
-
-    # Aggregate according to algorithm, features, scaling and count records
-    piv = pd.pivot_table(final_records, values=[], index=['Algo', 'Features',
-                                                          'Scaling'],
-                         aggfunc=lambda x: len(x))
-
-    # Join with data
-    piv = piv.reset_index().rename(columns={0: 'Count2'})
-    result = pd.merge(result, piv, how='inner', on=['Algo', 'Features',
-                                                    'Scaling'])
-
-    # Select models with all clustering options evaluated:
-    # 2 dataset x 2 encoding x (5 classifiers min-max + 4 classifiers no scale)
-    # x 7 different k's = 252
-    # -- OR --
-    # Models with all clustering options using min-max scaling:
-    # 2 dataset x  2 encoding x 5 classifiers x 7 k's = 140
-    # --- OR ---
-    # Models with all clustering options without scaling:
-    # 2 dataset x 2 encoding x 4 classifiers x 7 k's = 112 and make sure that's
-    # indeed record without scale (as opposed to min-max with 4 classifiers)
-    # --- OR ---
-    # The baseline: 2 dataset x 2 encoding x 2 scaling x 4 classifiers = 36
-    result = result[(result['Count1'] == 252) | (result['Count2'] == 140) |
-                    ((result['Count2'] == 112) & (result['Scaling'] is None)) |
-                    ((result['Count1'] == 36) & (result['Algo'] == 'NoSplit'))]
-
-    return result
 
 
 def short_legend_entry(algo, features):
@@ -169,7 +86,10 @@ def short_legend_entry(algo, features):
                    'NoSplit': 'Baseline',
                    'Birch': 'BIRCH',
                    'RoundRobin': 'Round Robin',
-                   'RandomRoundRobin': 'Unified Random'}
+                   'RandomRoundRobin': 'Unified Random',
+                   'WKMeans': 'K-means W',
+                   'Multipart': 'GraphPart',
+                   'EXLasso': 'EXLasso'}
     features_tbl = {'100 connections same host': 3,
                     'all 2 secs': 6,
                     'all history based features': 7,

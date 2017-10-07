@@ -33,7 +33,7 @@ from classifier import ClfFactory
 from clustering_model import is_feasible
 from splitters import RoundRobin, RandomRoundRobin, NoSplit
 from splitters import KMeansBal, MultiPart, WKMeans, EXLasso
-from reports import feasible_models, plot_classifier, plot_scalability
+from reports import feasible_classifiers, plot_classifier, plot_scalability
 from reports import plot_max_ratio, plot_roc, plot_class_distribution
 from reports import plot_classifier_info
 from settings import MODELS_DIR, GRAPHS_DIR, CLFS_DIR, REPORTS_DIR
@@ -306,7 +306,7 @@ def eval_classifiers(report_file=CLASSIFIERS_REPORT, classifiers=None,
 
 
 def feasible_models_output():
-    data = feasible_models()
+    data = feasible_classifiers()
     data.to_csv(FEASIBLES_REPORT, index=False)
 
     plot_classifier(data, 'NSL Test+', 'DT', 'AUC U2R',
@@ -338,7 +338,7 @@ def feasible_models_output():
                                             'nsltst-kmeans-sca-fscore.png'))
     plot_max_ratio(data, ['KMeans', 'NoSplit', 'RoundRobin',
                           'RandomRoundRobin'],
-                   order=[3, 4, 5, 0, 2, 1],
+                   # order=[3, 4, 5, 0, 2, 1],
                    file_name=os.path.join(GRAPHS_DIR, 'max-ratio-all.png'))
     plot_roc(data, 'NSL Test+', 'Min-max', 'Hot Encode', 'DT', 9, 'U2R',
              order=[3, 5, 4, 0, 1, 2],
@@ -358,7 +358,7 @@ def feasible_models_output():
     # separate files so report can be produced programatically
     data2 = pd.read_csv(join(REPORTS_DIR, 'classifiers_dt456.csv'))
     plot_classifier_info(pd.concat([data, data2]), 'DT',
-                         order=[3, 4, 5, 0, 2, 1],
+                         # order=[3, 4, 5, 0, 2, 1],
                          file_name=os.path.join(GRAPHS_DIR,
                                                 'baseline-dt-comparison.png'))
 
