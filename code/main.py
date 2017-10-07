@@ -256,48 +256,52 @@ def eval_classifiers(report_file=CLASSIFIERS_REPORT, classifiers=None,
         ds_ = NSL(dataset, scaling=scaling, encoding=encoding)
         for classifier in classifiers_:
             # Evaluate SVM only when min-max scaled (time constraint)
-            #if classifier.name == 'SVM' and scaling != 'Min-max':
-            #    continue
+            if classifier.name == 'SVM' and scaling != 'Min-max':
+                continue
 
             dump_file = '%s_%s_%s_%s_%s_%s.dmp' % (algo, features,
                                                    dataset, encoding, scaling,
                                                    classifier.name)
 
+            results = []
             if (isfile(join(CLFS_DIR, dump_file))):
-                print('Skipping %s' % dump_file)
-                continue
-            print('Working on %s' % dump_file)
-            ev = EvalClassifier(ds_, data, classifier, calc_prob=True)
+                print('Classifier %s already exists, loading results from it' %
+                      dump_file)
+                results = pickle.load(open(join(CLFS_DIR, dump_file), 'rb'))
+            else:
+                print('Working on %s' % dump_file)
+                ev = EvalClassifier(ds_, data, classifier, calc_prob=True)
+                if ev.eval():
+                    pickle.dump(ev.results, open(join(CLFS_DIR, dump_file),
+                                'wb'))
+                    results = ev.results
+                else:
+                    print("Error evaluating %s" % dump_file)
+                    continue
 
-            # If feasible (no errors during cross-validation)
-            if ev.eval():
-                # Dump results
-                pickle.dump(ev.results, open(join(CLFS_DIR, dump_file),
-                                             'wb'))
+            # Create report
+            for i, res in enumerate(results):
+                line = [dataset, encoding, scaling, algo, features,
+                        data[i]['k'], ' - '.join(map(lambda x: str(x),
+                                                 data[i]['SPLIT_SIZES']
+                                                     )),
+                        classifier.name, classifier.info, ev.kfold,
+                        '%.2f' % res[EV_TIME_TRN],
+                        '%.2f' % res[EV_TIME_TST],
+                        '%.2f' % res[EV_FSCORE],
+                        '%.2f' % res[EV_PRE],
+                        '%.2f' % res[EV_REC]]
 
-                # Create report
-                for i, res in enumerate(ev.results):
-                    line = [dataset, encoding, scaling, algo, features,
-                            data[i]['k'], ' - '.join(map(lambda x: str(x),
-                                                     data[i]['SPLIT_SIZES']
-                                                         )),
-                            classifier.name, classifier.info, ev.kfold,
-                            '%.2f' % res[EV_TIME_TRN],
-                            '%.2f' % res[EV_TIME_TST],
-                            '%.2f' % res[EV_FSCORE],
-                            '%.2f' % res[EV_PRE],
-                            '%.2f' % res[EV_REC]]
+                line = np.append(line, res[EV_CM].flatten())
+                if EV_AUC in res:
+                    for lbl in NSL.standard_labels():
+                        line = np.append(line,
+                                         '%.2f' % res[EV_AUC][lbl])
 
-                    line = np.append(line, res[EV_CM].flatten())
-                    if EV_AUC in res:
-                        for lbl in NSL.standard_labels():
-                            line = np.append(line,
-                                             '%.2f' % res[EV_AUC][lbl])
-
-                    csvwriter.writerow(line)
-                    csv_file.close()
-                    csv_file = open(report_file, 'ab')
-                    csvwriter = csv.writer(csv_file)
+                csvwriter.writerow(line)
+                csv_file.close()
+                csv_file = open(report_file, 'ab')
+                csvwriter = csv.writer(csv_file)
     csv_file.close()
 
 
