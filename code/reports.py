@@ -88,7 +88,7 @@ def short_legend_entry(algo, features):
                    'RoundRobin': 'Round Robin',
                    'RandomRoundRobin': 'Unified Random',
                    'WKMeans': 'K-means W',
-                   'Multipart': 'GraphPart',
+                   'MultiPart': 'GraphPart',
                    'EXLasso': 'EXLasso'}
     features_tbl = {'100 connections same host': 3,
                     'all 2 secs': 6,
@@ -107,6 +107,10 @@ def pretty_xaxis(l):
         entry = ""
         if t.find('Birch') != -1:
             entry = 'BIRCH'
+        elif t.find('WKMeans') != -1:
+            entry = 'WK-means'
+        elif t.find('KMeansBal') != -1:
+            entry = 'BK-means'
         elif t.find('KMeans') != -1:
             entry = 'K-means'
         elif t.find('NoSplit') != -1:
@@ -115,6 +119,10 @@ def pretty_xaxis(l):
             entry = 'Unified Random'
         elif t.find('Robin') != -1:
             entry = 'Round Robin'
+        elif t.find('MultiPart') != -1:
+            entry = 'GraphPart'
+        elif t.find('EXLasso') != -1:
+            entry = 'EXLasso'
 
         if t.find('100 connections') != -1:
             entry += ' [3]'
