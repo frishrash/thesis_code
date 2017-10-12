@@ -5,7 +5,7 @@ Created on Tue May 23 22:37:49 2017
 @author: gal
 """
 
-from os.path import join
+from os.path import join, isfile
 import matplotlib.pyplot as plt
 import matplotlib
 import seaborn as sns # At import it changes matplotlib settings, even unused
@@ -71,6 +71,36 @@ def feasible_classifiers():
     # Add Max Std., Max Ratio, and Avg. Split Time to our data
     result = pd.merge(result, clusters_data, how='inner', on=['Algo',
                       'Features', 'Encoding', 'Scaling', 'Dataset'])
+
+    # Add rest of raw data from model files, such as split time per every K
+    clusters_df = []
+    for i, row in clusters_data.iterrows():
+        algo = row['Algo']
+        features = row['Features']
+        dataset = row['Dataset']
+        encoding = row['Encoding']
+        scaling = row['Scaling']
+        model_file = '%s_%s_%s_%s_%s.dmp' % (algo, features, dataset, encoding,
+                                             scaling)
+        model_file = join(MODELS_DIR, model_file)
+        if not isfile(model_file):
+            print('Model %s was not found!' % model_file)
+            continue
+        model_data = pd.DataFrame.from_dict(pickle.load(
+                                            open(model_file, 'rb')))
+        model_data = model_data[['CLUSTERING_STD', 'MINMAX_RATIO',
+                                 'MAX_SPLIT_SIZE', 'MIN_SPLIT_SIZE',
+                                 'SPLIT_TIME', 'k']]
+        model_data = model_data.rename(columns={'k': 'K'})
+        model_data['Algo'] = row['Algo']
+        model_data['Dataset'] = row['Dataset']
+        model_data['Encoding'] = row['Encoding']
+        model_data['Scaling'] = row['Scaling']
+        model_data['Features'] = row['Features']
+        clusters_df.append(model_data)
+    result = pd.merge(result, pd.concat(clusters_df), how='inner',
+                      on=['Algo', 'Encoding', 'Scaling', 'Features',
+                      'Dataset', 'K'])
 
     # Return only records that had all K's evaluated for both train and test
     filt = ((result['Count'] == 14) |
