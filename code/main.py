@@ -111,7 +111,6 @@ def create_clustering_models():
                 for f, d in zip(nsl_features, nsl_descs):
                     models.append(CM(nsl, f, d).gen_model(KMeans,
                                                           random_state=0))
-                    models.append(CM(nsl, f, d).gen_model(Birch))
 
     for model in models:
         file_name = "%s_%s_%s_%s_%s.dmp" % (model.algorithm,
