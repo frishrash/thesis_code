@@ -87,11 +87,14 @@ def create_clustering_models():
                  ]
     for dataset in (ds.NSL_TRAIN20, ds.NSL_TEST):
         for encoding in (ds.ENC_NUMERIC, ds.ENC_HOT):
-            nsl = NSL(dataset, encoding, ds.SCL_STD)
-            models.append(CM(nsl).gen_model(MultiPart, seed=0))
-            models.append(CM(nsl).gen_model(WKMeans, random_state=0))
-            models.append(CM(nsl).gen_model(EXLasso, random_state=0, gamma=0.1,
-                          tol=1e-2, verbose=True))
+            for scaling in (ds.SCL_NONE, ds.SCL_MINMAX, ds.SCL_STD):
+                nsl = NSL(dataset, encoding, scaling)
+                models.append(CM(nsl).gen_model(MultiPart, seed=0))
+                models.append(CM(nsl).gen_model(WKMeans, random_state=0))
+                models.append(CM(nsl).gen_model(EXLasso, random_state=0,
+                              gamma=0.1, tol=1e-2, verbose=True))
+                models.append(CM(nsl).gen_model(KMeansBal, random_state=0,
+                              clusters_factor=5))
 
         for encoding in (ds.ENC_NUMERIC, ds.ENC_HOT):
             for scaling in (ds.SCL_NONE, ds.SCL_MINMAX, ds.SCL_STD):
@@ -108,9 +111,6 @@ def create_clustering_models():
                 for f, d in zip(nsl_features, nsl_descs):
                     models.append(CM(nsl, f, d).gen_model(KMeans,
                                                           random_state=0))
-                    models.append(CM(nsl, f, d).gen_model(KMeansBal,
-                                                          random_state=0,
-                                                          clusters_factor=5))
                     models.append(CM(nsl, f, d).gen_model(Birch))
 
     for model in models:
@@ -310,13 +310,13 @@ def feasible_models_output():
     data.to_csv(FEASIBLES_REPORT, index=False)
 
     plot_classifier(data, 'NSL Test+', 'DT', 'AUC U2R',
-                    order=[3, 4, 5, 0, 2, 1],
+                    #order=[3, 4, 5, 0, 2, 1],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-aucu2r.png'))
     # plot_classifier(data, 'NSL Test+', 'RF', 'F-Score',
     #               order=[3, 4, 5, 0, 2, 1],
     #               file_name=os.path.join(GRAPHS_DIR, 'nsltst-rf-fscore.png'))
     plot_classifier(data, 'NSL Test+', 'DT', 'F-Score',
-                    order=[3, 4, 5, 0, 2, 1],
+                    #order=[3, 4, 5, 0, 2, 1],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-fscore.png'))
     plot_classifier(data, 'NSL Test+', 'SVM', 'F-Score',
                     order=[3, 4, 5, 0, 2, 1],
@@ -324,12 +324,12 @@ def feasible_models_output():
                     )
 
     plot_classifier(data, 'NSL Test+', 'kNN', 'F-Score',
-                    order=[3, 4, 5, 0, 2, 1],
+                    #order=[3, 4, 5, 0, 2, 1],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-knn-fscore.png')
                     )
 
     plot_classifier(data, 'NSL Test+', 'MLPClassifier', 'F-Score',
-                    order=[3, 4, 5, 0, 2, 1],
+                    #order=[3, 4, 5, 0, 2, 1],
                     file_name=os.path.join(GRAPHS_DIR, 'nsltst-mlp-fscore.png')
                     )
 
