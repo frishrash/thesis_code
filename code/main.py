@@ -142,8 +142,10 @@ def clustering_feasibility_report():
 
     for f in listdir(MODELS_DIR):
         algo, features, dataset, encoding, scaling = f.split('_')
-        data = pickle.load(open(join(MODELS_DIR, f), 'rb'))
-
+        try:
+            data = pickle.load(open(join(MODELS_DIR, f), 'rb'))
+        except Exception:
+            continue
         max_std = np.max(map(lambda x: x['CLUSTERING_STD'], data))
         max_ratio = np.max(map(lambda x: x['MINMAX_RATIO'], data))
         max_split = np.max(map(lambda x: x['MAX_SPLIT_SIZE'], data))
