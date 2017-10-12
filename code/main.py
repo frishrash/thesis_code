@@ -114,18 +114,21 @@ def create_clustering_models():
                     models.append(CM(nsl, f, d).gen_model(Birch))
 
     for model in models:
-        print ("Running model %s %s %s %s %s" % (model.dataset.ds_name,
-                                                 model.dataset.encoding,
-                                                 model.dataset.scaling,
-                                                 model.algorithm,
-                                                 model.features_desc))
-        model.run()
         file_name = "%s_%s_%s_%s_%s.dmp" % (model.algorithm,
                                             model.features_desc,
                                             model.dataset.ds_name,
                                             model.dataset.encoding,
                                             model.dataset.scaling,
                                             )
+        if (isfile(os.path.join(MODELS_DIR, file_name))):
+            print("Skipping %s" % file_name)
+            continue
+        print ("Running model %s %s %s %s %s" % (model.dataset.ds_name,
+                                                 model.dataset.encoding,
+                                                 model.dataset.scaling,
+                                                 model.algorithm,
+                                                 model.features_desc))
+        model.run()
         model.save(os.path.join(MODELS_DIR, file_name))
 
 
