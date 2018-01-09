@@ -95,6 +95,7 @@ ENV/
 
 # Reports
 *.csv
+*.xls
 
 # Graphs
 *.png
