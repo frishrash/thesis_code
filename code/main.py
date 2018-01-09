@@ -35,9 +35,10 @@ from splitters import RoundRobin, RandomRoundRobin, NoSplit
 from splitters import KMeansBal, MultiPart, WKMeans, EXLasso
 from reports import feasible_classifiers, plot_classifier, plot_scalability
 from reports import plot_max_ratio, plot_roc, plot_class_distribution
-from reports import plot_classifier_info
+from reports import plot_classifier_info, plot_roc_lb, select
 from settings import MODELS_DIR, GRAPHS_DIR, CLFS_DIR, REPORTS_DIR
 from settings import CLUSTERS_REPORT, CLASSIFIERS_REPORT, FEASIBLES_REPORT
+from settings import LB_MODELS_REPORT, LB_MODELS_REPORT_SUM
 
 
 dt3 = ClfFactory(DT, random_state=0, max_depth=3)
@@ -309,62 +310,136 @@ def eval_classifiers(report_file=CLASSIFIERS_REPORT, classifiers=None,
     csv_file.close()
 
 
+def select_models(data, models):
+    glob_filt = pd.Series(data=False, index=data.index)
+    for model in models:
+        filt = pd.Series(data=True, index=data.index)
+        for k, v in model.iteritems():
+            filt = filt & (data[k] == v)
+        glob_filt = glob_filt | filt
+    return data[glob_filt]
+
+
+def best_models():
+    models = [{'Algo': 'MultiPart', 'Encoding': 'Numeric', 'Scaling': 'None'},
+              {'Algo': 'EXLasso', 'Encoding': 'Numeric', 'Scaling': 'Min-max'},
+              {'Algo': 'KMeansBal5', 'Encoding': 'Numeric',
+               'Scaling': 'Min-max'},
+              {'Algo': 'WKMeans', 'Encoding': 'Numeric', 'Scaling': 'Min-max'},
+              {'Algo': 'KMeans', 'Encoding': 'Numeric', 'Scaling': 'Min-max',
+               'Features': 'all features'},
+              {'Algo': 'KMeans', 'Encoding': 'Hot Encode', 'Scaling': 'None',
+               'Features': '100 connections same host'},
+              {'Algo': 'KMeans', 'Encoding': 'Hot Encode',
+               'Scaling': 'Min-max', 'Features': 'single TCP features'},
+              {'Algo': 'KMeans', 'Encoding': 'Numeric', 'Scaling': 'Min-max',
+               'Features': 'all history based features'},
+              {'Algo': 'NoSplit'}, {'Algo': 'RoundRobin'},
+              {'Algo': 'RandomRoundRobin'}]
+    return models
+
+
+def plot_order():
+    order = [['NoSplit', 'RandomRoundRobin', 'RoundRobin', 'MultiPart',
+              'EXLasso', 'KMeansBal5', 'KMeans', 'WKMeans'],
+             ['all features', '2 secs same dest host', '2 secs same service',
+              '100 connections same host', 'expert features',
+              'single TCP features', 'all 2 secs',
+              'all history based features', 'All']]
+    return order
+
+
+def plot_models(data, order):
+    for classifier in ['kNN', 'DT', 'RF', 'MLPClassifier', 'SVM']:
+        for metric in ['F-Score', 'AUC NORMAL', 'AUC DOS', 'AUC PROBE',
+                       'AUC R2L', 'AUC U2R']:
+            file_name = join(GRAPHS_DIR, 'nsltst-%s-%s.png' %
+                             (classifier, metric))
+            plot_classifier(data, 'NSL Test+', classifier, metric,
+                            order=order, ylim_lower=0.7, file_name=file_name)
+
+
+def plot_models_details(data, order):
+    for scaling in ['Standard', 'Min-max', 'None']:
+        for encoding in ['Numeric', 'Hot Encode']:
+            file_name = join(GRAPHS_DIR, 'nsltst-MLPClassifier-all-%s-%s.png' %
+                             (scaling, encoding))
+            x = select(data, {'Scaling': scaling, 'Encoding': encoding})
+            plot_classifier(x, 'NSL Test+', 'MLPClassifier', 'F-Score',
+                            ylim_lower=0.7, order=order, file_name=file_name)
+
+    for encoding in ['Numeric', 'Hot Encode']:
+        scaling = 'Min-max'
+        file_name = join(GRAPHS_DIR, 'nsltst-SVM-all-%s-%s.png' %
+                         (scaling, encoding))
+        x = select(data, {'Scaling': scaling, 'Encoding': encoding})
+        plot_classifier(x, 'NSL Test+', 'SVM', 'F-Score',
+                        ylim_lower=0.7, order=order, file_name=file_name)
+
+
 def feasible_models_output():
     data = feasible_classifiers()
     data.to_csv(FEASIBLES_REPORT, index=False)
+    order = plot_order()
+    bpm_data = select_models(data, best_models())
+    plot_models(bpm_data, order)
+    plot_models_details(bpm_data, order)
 
-    plot_classifier(data, 'NSL Test+', 'DT', 'AUC U2R',
-                    #order=[3, 4, 5, 0, 2, 1],
-                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-aucu2r.png'))
-    # plot_classifier(data, 'NSL Test+', 'RF', 'F-Score',
-    #               order=[3, 4, 5, 0, 2, 1],
-    #               file_name=os.path.join(GRAPHS_DIR, 'nsltst-rf-fscore.png'))
-    plot_classifier(data, 'NSL Test+', 'DT', 'F-Score',
-                    #order=[3, 4, 5, 0, 2, 1],
-                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-dt-fscore.png'))
-    plot_classifier(data, 'NSL Test+', 'SVM', 'F-Score',
-                    order=[3, 4, 5, 0, 2, 1],
-                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-svm-fscore.png')
-                    )
+    res = pd.pivot_table(data, values=['CLUSTERING_STD', 'MINMAX_RATIO',
+                                       'SPLIT_TIME'],
+                         index=['Algo', 'Features', 'Dataset', 'K'],
+                         columns=['Scaling', 'Encoding'])
+    res.round(2).to_excel(LB_MODELS_REPORT)
 
-    plot_classifier(data, 'NSL Test+', 'kNN', 'F-Score',
-                    #order=[3, 4, 5, 0, 2, 1],
-                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-knn-fscore.png')
-                    )
+    res = pd.pivot_table(data, values=['CLUSTERING_STD', 'MINMAX_RATIO',
+                                       'SPLIT_TIME'],
+                         index=['Algo', 'Features', 'Dataset'],
+                         columns=['Scaling', 'Encoding'],
+                         aggfunc={'CLUSTERING_STD': 'max',
+                                  'MINMAX_RATIO': 'max',
+                                  'SPLIT_TIME': 'mean'})
+    res.round(2).to_excel(LB_MODELS_REPORT_SUM)
 
-    plot_classifier(data, 'NSL Test+', 'MLPClassifier', 'F-Score',
-                    #order=[3, 4, 5, 0, 2, 1],
-                    file_name=os.path.join(GRAPHS_DIR, 'nsltst-mlp-fscore.png')
-                    )
+    plot_roc_lb(bpm_data, 'NSL Test+', 'RF', 9, 'U2R',
+                file_name=join(GRAPHS_DIR, 'auc_lb_nsltst_rf_u2r_9.png'))
 
-    plot_scalability(data, 'NSL Test+', 'KMeans', ["Min-max"], 'F-Score',
-                     file_name=os.path.join(GRAPHS_DIR,
-                                            'nsltst-kmeans-sca-fscore.png'))
-    plot_max_ratio(data, ['KMeans', 'NoSplit', 'RoundRobin',
-                          'RandomRoundRobin'],
-                   # order=[3, 4, 5, 0, 2, 1],
-                   file_name=os.path.join(GRAPHS_DIR, 'max-ratio-all.png'))
-    plot_roc(data, 'NSL Test+', 'Min-max', 'Hot Encode', 'DT', 9, 'U2R',
-             order=[3, 5, 4, 0, 1, 2],
-             file_name=os.path.join(GRAPHS_DIR,
-                                    'nsltst-roc-u2r-dt-9-minmax-onehot.png'))
-    plot_class_distribution('KMeans', '100 connections same host', 'NSL Test+',
-                            'Hot Encode', 'Min-max', 9,
-                            file_name=os.path.join(GRAPHS_DIR,
-                                                   'class-dist-kmeans.png'))
-    plot_class_distribution('RoundRobin', 'All',
-                            'NSL Test+', 'Hot Encode', 'Min-max', 9,
-                            file_name=os.path.join(GRAPHS_DIR,
-                                                   'class-dist-rr.png'))
+    plot_roc_lb(bpm_data, 'NSL Test+', 'DT', 9, 'U2R',
+                file_name=join(GRAPHS_DIR, 'auc_lb_nsltst_dt_u2r_9.png'))
+
+    plot_roc_lb(bpm_data, 'NSL Test+', 'RF', 9, 'R2L',
+                file_name=join(GRAPHS_DIR, 'auc_lb_nsltst_rf_r2l_9.png'))
+
+    plot_roc_lb(bpm_data, 'NSL Test+', 'DT', 9, 'R2L',
+                file_name=join(GRAPHS_DIR, 'auc_lb_nsltst_dt_r2l_9.png'))
+
+    plot_roc_lb(bpm_data, 'NSL Test+', 'RF', 9, 'NORMAL',
+                file_name=join(GRAPHS_DIR, 'auc_lb_nsltst_rf_normal_9.png'))
+
+    plot_roc_lb(bpm_data, 'NSL Test+', 'DT', 9, 'NORMAL',
+                file_name=join(GRAPHS_DIR, 'auc_lb_nsltst_dt_normal_9.png'))
 
     # Important: report 'classifiers_dt456.csv' was produced manually !!!
     # Todo: refactor models creation such that DT4, DT5, DT6 dumps will be on
     # separate files so report can be produced programatically
     data2 = pd.read_csv(join(REPORTS_DIR, 'classifiers_dt456.csv'))
-    plot_classifier_info(pd.concat([data, data2]), 'DT',
-                         # order=[3, 4, 5, 0, 2, 1],
+    plot_classifier_info(pd.concat([bpm_data, data2]), 'DT',
+                         order=order,
                          file_name=os.path.join(GRAPHS_DIR,
                                                 'baseline-dt-comparison.png'))
+    plot_class_distribution('RandomRoundRobin', 'All', 'NSL Test+',
+                            'Hot Encode', 'Min-max', 9, percentage=False,
+                            file_name=join(GRAPHS_DIR, 'class-dist-rrr.png'))
+    plot_class_distribution('RoundRobin', 'All', 'NSL Test+', 'Hot Encode',
+                            'Min-max', 9, percentage=False,
+                            file_name=join(GRAPHS_DIR, 'class-dist-rr.png'))
+    plot_class_distribution('MultiPart', 'All', 'NSL Test+', 'Numeric', 'None',
+                            9, percentage=False,
+                            file_name=join(GRAPHS_DIR,
+                                           'class-dist-multipart.png'))
+    plot_class_distribution('EXLasso', 'All', 'NSL Test+', 'Numeric',
+                            'Min-max', 9, percentage=False,
+                            file_name=join(GRAPHS_DIR,
+                                           'class-dist-exlasso.png'))
 
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers(dest="command", help='sub-command help')
@@ -404,12 +479,3 @@ elif args.command == 'PO':
 elif args.command == 'EC':
     eval_classifiers(report_file=args.output, classifiers=args.classifiers,
                      clusters_file=args.clusters_report)
-    
-#if not args.mode:
-#    parser.error("One of --process or --upload must be given")
-
-# create_clustering_models()
-#feasibile_clustering_models()
-#clustering_feasibility_report()
-# eval_classifiers()
-# feasible_models_output()

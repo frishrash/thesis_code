@@ -22,6 +22,8 @@ CLFS_DIR = os.path.join(THESIS_DIR, 'classifiers')
 CLUSTERS_REPORT = os.path.join(REPORTS_DIR, 'clusters.csv')
 CLASSIFIERS_REPORT = os.path.join(REPORTS_DIR, 'classifiers.csv')
 FEASIBLES_REPORT = os.path.join(REPORTS_DIR, 'feasibles.csv')
+LB_MODELS_REPORT = os.path.join(REPORTS_DIR, 'feasible_lb_models_raw.xls')
+LB_MODELS_REPORT_SUM = os.path.join(REPORTS_DIR, 'feasible_lb_models.xls')
 
 MAX_CLUSTERS_STD = 5000
 MAX_CLUSTERS_RATIO = 15
