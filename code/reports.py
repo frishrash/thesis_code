@@ -126,7 +126,7 @@ def short_legend_entry(algo, features):
                    'RandomRoundRobin': 'Uniform Random',
                    'WKMeans': 'WK-means',
                    'MultiPart': 'Multipart',
-                   'EXLasso': 'EXLasso'}
+                   'EXLasso': 'XLK-means'}
     features_tbl = {'100 connections same host': 3,
                     'all 2 secs': 6,
                     'all history based features': 7,
@@ -159,7 +159,7 @@ def pretty_xaxis(l):
         elif t.find('MultiPart') != -1:
             entry = 'Multipart'
         elif t.find('EXLasso') != -1:
-            entry = 'EXLasso'
+            entry = 'XLK-means'
 
         if t.find('100 connections') != -1:
             entry += ' [3]'
@@ -176,6 +176,70 @@ def pretty_xaxis(l):
 
         out.append(entry)
     return out
+
+
+def plot_lines(df, columns, index, values, file_name=None, order=None, rot=0,
+               naming_fn=pretty_xaxis, cmap='PuBu_r', xlabel='', ylabel='',
+               legend_loc='top right', ylim_lower=None):
+
+    piv = pd.pivot_table(df, columns=columns, index=index, values=values,
+                         aggfunc=np.mean)
+
+    # Reorder columns
+    if order is not None:
+        for level, keys in enumerate(order):
+            piv = piv.reindex_axis(keys, level=level, axis=1)
+
+    # Matplotlib settings
+    matplotlib.rcParams.update({'font.family': 'Times New Roman'})
+
+    if file_name is not None:
+        plt.ioff()
+    else:
+        plt.ion()
+
+    # Create Figure
+    p = plt.figure(figsize=(10, 6))
+    ax = p.add_subplot(111)
+    ax.set_axis_bgcolor('white')
+
+    ax.grid(True, linestyle='--', linewidth='0.5', color='black', axis='both')
+    ax.set_axisbelow(True)
+
+    cNorm = matplotlib.colors.Normalize(vmin=0, vmax=5)
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
+    colors = [1, 2, 3, 4, 4, 4, 4, 0]
+    line_styles = [':', '-', '-'] + ['-'] * 4 + ['-']
+    markers = ['', 'p', '*', 'o', '^', 'v', 's', '']
+
+    for i, col in enumerate(piv.columns):
+        plt.plot(piv[col], color=scalarMap.to_rgba(colors[i]),
+                 linestyle=line_styles[i], marker=markers[i], linewidth=4,
+                 markersize=15)
+
+    handles, labels = ax.get_legend_handles_labels()
+    new_labels = pretty_xaxis(labels)
+
+    l = ax.legend(new_labels, loc=legend_loc, prop={'size': 20}, frameon=True,
+                  ncol=3)
+    frame = l.get_frame()
+    frame.set_facecolor('white')
+    frame.set_edgecolor('black')
+
+    ylim_lower_, ylim_upper_ = ax.get_ylim()
+    if ylim_lower_ is not None:
+        ylim_lower_ = ylim_lower
+    plt.ylim(ylim_lower_, ylim_upper_)
+    plt.xticks(fontsize=26)
+    plt.yticks(fontsize=26)
+    ax.set_ylabel(ylabel, fontsize=26)
+    ax.set_xlabel(xlabel, fontsize=26)
+    plt.tight_layout()
+    if file_name is not None:
+        p.savefig(file_name)
+        plt.close(p)
+    else:
+        plt.show()
 
 
 def plot_bars(df, columns, score, file_name=None, order=None, ylim_upper=1,
