@@ -33,7 +33,7 @@ from classifier import ClfFactory
 from clustering_model import is_feasible
 from splitters import RoundRobin, RandomRoundRobin, NoSplit
 from splitters import KMeansBal, MultiPart, WKMeans, EXLasso
-from reports import feasible_classifiers, plot_classifier, plot_scalability
+from reports import feasible_classifiers, plot_classifier, plot_lines
 from reports import plot_max_ratio, plot_roc, plot_class_distribution
 from reports import plot_classifier_info, plot_roc_lb, select
 from settings import MODELS_DIR, GRAPHS_DIR, CLFS_DIR, REPORTS_DIR
@@ -399,6 +399,21 @@ def feasible_models_output():
                                   'MINMAX_RATIO': 'max',
                                   'SPLIT_TIME': 'mean'})
     res.round(2).to_excel(LB_MODELS_REPORT_SUM)
+
+    # Plot scalability - run time
+    bpm_clb_data = select(bpm_data, {'Dataset': 'NSL Test+',
+                                     'Algo': ['EXLasso', 'KMeans',
+                                              'KMeansBal5', 'MultiPart',
+                                              'WKMeans']})
+    plot_lines(bpm_clb_data, ['Algo', 'Features', 'Encoding', 'Scaling'], 'K',
+               'SPLIT_TIME', xlabel='Number of clusters (k)',
+               ylabel='Run time (sec)', order=order,
+               file_name=join(GRAPHS_DIR, 'clb_split_times.png'))
+
+    plot_lines(bpm_clb_data, ['Algo', 'Features', 'Encoding', 'Scaling'], 'K',
+               'F-Score', xlabel='Number of clusters (k)',
+               ylabel='Average F-score', order=order, ylim_lower=0.88,
+               file_name=join(GRAPHS_DIR, 'clb_avg_fscore.png'))
 
     plot_roc_lb(bpm_data, 'NSL Test+', 'RF', 9, 'U2R',
                 file_name=join(GRAPHS_DIR, 'auc_lb_nsltst_rf_u2r_9.png'))
